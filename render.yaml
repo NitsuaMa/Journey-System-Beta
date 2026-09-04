@@ -1,0 +1,325 @@
+# =============================================================================
+# Journey System - Render Blueprint (Infrastructure as Code)
+# =============================================================================
+# This file IS the infrastructure. Render reads it and makes the real services
+# match it. Change a plan here, commit, sync, and the plan changes - instead of
+# a dashboard toggle you flipped six weeks ago and can no longer remember.
+#
+# WHAT IS LIVE HERE, AND WHAT IS DELIBERATELY NOT
+# -----------------------------------------------
+# Live:      1 web service, 1 background worker, 3 cron jobs.
+# Commented: Render Postgres, Render Key Value.
+#
+# The plan document calls Postgres "the main database for the application".
+# For this codebase that is not true today. Every read and write in this repo
+# goes to Firestore through firebase / firebase-admin. There is no `pg`
+# package, no ORM, no migrations, no SQL anywhere in src/, server/ or
+# functions/. A Postgres instance would come up empty, stay empty, and bill for
+# the privilege.
+#
+# Key Value is the same story twice over. Nothing in the code opens a Redis
+# connection - and the "keeps coaches and clients logged in" benefit does not
+# apply to this app at all: sign-in is Firebase Auth, which hands the BROWSER a
+# token it refreshes itself. There is no server-side session to store, which is
+# why a phone screen going dark already does not log anyone out.
+#
+# Both are written out in full at the bottom of this file, commented, each with
+# the specific condition that would make it worth switching on. Uncomment when
+# the code that uses it exists. Not before.
+#
+# WHAT IT COSTS AS WRITTEN
+# ------------------------
+#   Workspace plan (Pro - billed per workspace, not from this file)   $25/mo
+#   Web service         1c-2g       (the PDF's "Standard")            $25/mo
+#   Background worker   0.5c-512mb  (the PDF's "Starter")              $7/mo
+#   3 cron jobs         0.5c-512mb  billed per minute of run time     ~$1/mo
+#                                                                    -------
+#                                                                    ~$58/mo
+#   The PDF's ~$74 also included Postgres ($6) and Key Value ($10).
+#
+# A NOTE ON PLAN NAMES
+# --------------------
+# Render renamed its instance tiers. The PDF's names still appear in the
+# dashboard, but the blueprint spec now documents the CPU/RAM ids, so those are
+# what this file uses:
+#   Starter  0.5 CPU / 512 MB  ->  0.5c-512mb
+#   Standard   1 CPU / 2 GB    ->  1c-2g
+#   Pro        2 CPU / 4 GB    ->  2c-4g
+#
+# HOW TO APPLY THIS - read RENDER-DEPLOYMENT.md first.
+# The web service `name` below MUST stay exactly as it is. That name is the
+# only thing that tells Render to update your existing service rather than
+# stand up a second copy of it beside the first.
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# SHARED ENVIRONMENT GROUPS
+# -----------------------------------------------------------------------------
+# Set a value once, use it in four services. Without groups you would paste the
+# same Firebase project id into the web service, the worker and all three cron
+# jobs, and one day you would rotate it in four places and miss the fifth.
+#
+# `sync: false` means "Render prompts me for this value the first time and then
+# leaves it alone". No secret is ever written into this file - it is in git.
+# -----------------------------------------------------------------------------
+envVarGroups:
+  # Firebase project identity. The web service needs these AT BUILD TIME (Vite
+  # inlines VITE_* variables into the browser bundle, and
+  # scripts/setup-firebase-config.cjs writes firebase-applet-config.json from
+  # them). The worker and crons need the project and database ids to know which
+  # Firestore to open - this project does NOT use the "(default)" database, and
+  # connecting to the wrong one reads an empty database without erroring.
+  - name: journey-firebase-client
+    envVars:
+      - key: VITE_FIREBASE_PROJECT_ID
+        sync: false
+      - key: VITE_FIREBASE_FIRESTORE_DATABASE_ID
+        sync: false
+      - key: VITE_FIREBASE_API_KEY
+        sync: false
+      - key: VITE_FIREBASE_APP_ID
+        sync: false
+      - key: VITE_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: VITE_FIREBASE_STORAGE_BUCKET
+        sync: false
+      - key: VITE_FIREBASE_MESSAGING_SENDER_ID
+        sync: false
+      - key: VITE_FIREBASE_MEASUREMENT_ID
+        sync: false
+
+  # The service-account key: full admin rights over Firestore, bypassing every
+  # rule in firestore.rules. It is in its own group so it can be attached to the
+  # worker and the crons and NOT to the web service, which has never needed it.
+  # A key that is not on a public-facing service cannot leak from one.
+  - name: journey-firebase-admin
+    envVars:
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
+
+
+services:
+  # ===========================================================================
+  # 1. WEB COMPUTE - the app itself
+  # ===========================================================================
+  # Serves the built React bundle and the /api routes in server.ts (Gemini
+  # proxying, Mindbody proxying, iCal parsing). This is your EXISTING service:
+  # the name below matches https://maxstrength-app-beta.onrender.com, so Render
+  # will update it in place instead of creating a second one.
+  # ===========================================================================
+  - type: web
+    name: maxstrength-app-beta
+    runtime: node
+    plan: 1c-2g            # "Standard" - $25/mo, 1 CPU, 2 GB
+    branch: master
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz   # server.ts already answers this
+    autoDeployTrigger: commit   # replaces the deprecated `autoDeploy: true`
+    # NOTE: `region` is deliberately absent. A service's region cannot be
+    # changed after it is created, so naming the wrong one here is at best
+    # ignored and at worst a sync error. Render keeps the region it has.
+    envVars:
+      - fromGroup: journey-firebase-client
+      - key: NODE_VERSION
+        value: "22"          # matches "engines": { "node": "22.x" }
+      # DO NOT add NODE_ENV=production here. `npm ci` then skips
+      # devDependencies, vite and esbuild disappear, and `npm run build` fails
+      # on a machine where it worked yesterday. Express does not need it.
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: MINDBODY_API_KEY
+        sync: false
+      - key: MINDBODY_SOURCE_NAME
+        sync: false
+      - key: MINDBODY_SOURCE_PASSWORD
+        sync: false
+      - key: MINDBODY_WEBHOOK_SECRET
+        sync: false
+      - key: VITE_MICROSOFT_TENANT_ID
+        sync: false
+      - key: APP_URL
+        value: https://maxstrength-app-beta.onrender.com
+
+  # ===========================================================================
+  # 2. BACKGROUND WORKER - server/worker.ts
+  # ===========================================================================
+  # A second machine with no public URL. It watches the notificationQueue
+  # collection and does the slow work, so that the web service never spends a
+  # second on anything but answering the trainer standing at a machine.
+  #
+  # functions/src/index.ts has been writing booking_reminder documents into
+  # that collection all along with nothing on the other end to read them. This
+  # service is the other end.
+  # ===========================================================================
+  - type: worker
+    name: journey-worker
+    runtime: node
+    plan: 0.5c-512mb       # "Starter" - $7/mo, 0.5 CPU, 512 MB
+    region: oregon         # <-- set this to the SAME region as the web service
+    branch: master
+    buildCommand: npm ci && npm run build:backend
+    startCommand: npm run start:worker
+    autoDeployTrigger: commit
+    envVars:
+      - fromGroup: journey-firebase-client
+      - fromGroup: journey-firebase-admin
+      - key: NODE_VERSION
+        value: "22"
+      # Everything except the final send is live. Flip this to "false" on the
+      # day a real SMS/email provider is wired into deliver() in
+      # server/worker.ts - and not a moment before, or every queued
+      # notification fails and retries five times.
+      - key: NOTIFICATION_DRY_RUN
+        value: "true"
+
+  # ===========================================================================
+  # 3. CRON - daily session reminders (server/cron-daily-reminders.ts)
+  # ===========================================================================
+  # Reads today's bookings and QUEUES one reminder per client. It does not send
+  # them; the worker does. A cron job that waited on a slow SMS provider would
+  # be billed for every minute it spent waiting.
+  #
+  # SCHEDULES ARE UTC AND DO NOT MOVE FOR DAYLIGHT SAVING.
+  # 11:00 UTC = 7am Eastern in summer, 6am Eastern in winter. If a 7am send is
+  # non-negotiable year round, change this to "0 12 * * *" when the clocks go
+  # back in November. The JOB always works out "today" in studio time, so the
+  # right bookings are picked either way - only the send hour drifts.
+  # ===========================================================================
+  - type: cron
+    name: journey-cron-daily-reminders
+    runtime: node
+    plan: 0.5c-512mb
+    region: oregon         # <-- match the web service
+    branch: master
+    schedule: "0 11 * * *"
+    buildCommand: npm ci && npm run build:backend
+    startCommand: npm run cron:reminders
+    envVars:
+      - fromGroup: journey-firebase-client
+      - fromGroup: journey-firebase-admin
+      - key: NODE_VERSION
+        value: "22"
+      - key: REMINDER_TIMEZONE
+        value: America/New_York
+
+  # ===========================================================================
+  # 4. CRON - Sunday night coach reports (server/cron-weekly-coach-report.ts)
+  # ===========================================================================
+  # 00:00 UTC Monday = 8pm Eastern Sunday (7pm in winter).
+  # ===========================================================================
+  - type: cron
+    name: journey-cron-coach-report
+    runtime: node
+    plan: 0.5c-512mb
+    region: oregon         # <-- match the web service
+    branch: master
+    schedule: "0 0 * * 1"
+    buildCommand: npm ci && npm run build:backend
+    startCommand: npm run cron:coach-report
+    envVars:
+      - fromGroup: journey-firebase-client
+      - fromGroup: journey-firebase-admin
+      - key: NODE_VERSION
+        value: "22"
+      - key: REMINDER_TIMEZONE
+        value: America/New_York
+
+  # ===========================================================================
+  # 5. CRON - nightly leaderboards (server/cron-leaderboards.ts)
+  # ===========================================================================
+  # server/leaderboard-cron.ts has been in the repo for a while with no
+  # scheduler attached to it. This is the scheduler.
+  #
+  # It rebuilds leaderboards/global and leaderboards/studio_<id> from every
+  # exerciseLog, which is exactly the "heavy report" shape the plan warns
+  # about - and exactly why it belongs at 3am on its own machine rather than
+  # inside a request on the web service.
+  #
+  # 07:00 UTC = 3am Eastern in summer, 2am in winter.
+  # ===========================================================================
+  - type: cron
+    name: journey-cron-leaderboards
+    runtime: node
+    plan: 0.5c-512mb
+    region: oregon         # <-- match the web service
+    branch: master
+    schedule: "0 7 * * *"
+    buildCommand: npm ci && npm run build:backend
+    startCommand: npm run cron:leaderboards
+    envVars:
+      - fromGroup: journey-firebase-client
+      - fromGroup: journey-firebase-admin
+      - key: NODE_VERSION
+        value: "22"
+
+  # ===========================================================================
+  # 6. RENDER KEY VALUE - NOT ENABLED (and not needed yet)
+  # ===========================================================================
+  # Uncomment ONLY when at least one of these is true:
+  #
+  #   * A Firestore read is measurably slow or expensive and the SAME answer is
+  #     being fetched over and over - the weekly studio schedule, the machine
+  #     catalog, routine templates. Cache those and you cut real reads.
+  #   * The worker needs a queue with priorities, delays or scheduled retries
+  #     that a Firestore collection cannot express cleanly.
+  #
+  # It is NOT needed for logins. Firebase Auth issues the browser a token that
+  # the browser refreshes on its own; there is no session on the server to keep
+  # anywhere, which is why locking a phone already does not sign anyone out.
+  #
+  # Enabling it is not just uncommenting: something has to CALL it. Nothing in
+  # this repo speaks Redis today (no `redis`/`ioredis` dependency), so this
+  # block on its own buys an empty cache for $10/month.
+  # ---------------------------------------------------------------------------
+  # - type: keyvalue
+  #   name: journey-cache
+  #   plan: 256mb            # "Starter" - $10/mo, 256 MB, 250 connections
+  #   region: oregon         # MUST match the services using it, or traffic
+  #                          # leaves the private network and slows down
+  #   maxmemoryPolicy: allkeys-lru   # a cache should evict; noeviction turns a
+  #                                  # full cache into hard write errors
+  #   ipAllowList: []        # empty = reachable only from inside Render
+  #
+  # ...and then, on the web service and the worker:
+  #
+  #     - key: REDIS_URL
+  #       fromService:
+  #         type: keyvalue
+  #         name: journey-cache
+  #         property: connectionString
+
+
+# =============================================================================
+# RENDER POSTGRES - NOT ENABLED (nothing in this codebase can talk to it)
+# =============================================================================
+# Uncommenting this creates a real, empty, billable database. The app would not
+# notice it existed. Switching to it is not a config change, it is a project:
+# a `pg` client, a schema, migrations, and a rewrite of every Firestore call in
+# src/, server/ and functions/ - plus firestore.rules, which today enforces
+# your entire permission model and has no Postgres equivalent.
+#
+# The honest reasons to take that on, when they arrive:
+#   * You need real SQL - joins and GROUP BY across clients, sessions and logs
+#     for reporting that Firestore makes painful or expensive.
+#   * You need transactions across many documents at once.
+#   * Firestore read costs at your volume exceed the cost of running Postgres.
+#
+# Until one of those is actually biting, Firestore IS your managed database:
+# automatic backups, no maintenance, and the security rules you have already
+# written and tested.
+# -----------------------------------------------------------------------------
+# databases:
+#   - name: journey-postgres
+#     plan: 0.1c-256mb       # "Basic-256mb" - $6/mo + $0.30/GB of storage
+#     region: oregon         # MUST match the services using it
+#     diskSizeGB: 5
+#
+# ...and then, on whichever services need it:
+#
+#     - key: DATABASE_URL
+#       fromDatabase:
+#         name: journey-postgres
+#         property: connectionString
+# =============================================================================
