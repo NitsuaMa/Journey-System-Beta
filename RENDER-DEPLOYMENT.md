@@ -47,6 +47,70 @@ what any studio, coach or client experiences today.
 
 ---
 
+## Step 0 - Two things to check in the dashboard first
+
+Neither of these can live in `render.yaml`, and one of them can change your
+bill the moment you sync.
+
+### 0a. What instance type is the web service on right now?
+
+Dashboard → `maxstrength-app-beta` → **Settings** → Instance Type.
+
+`render.yaml` says `plan: 1c-2g` - that is the tier the plan document
+recommends ("Standard", $25/mo, 1 CPU, 2 GB). **If your service is currently on
+something smaller, syncing the blueprint will move it up and your bill with
+it.** The blueprint is the source of truth once you sync; whatever the file
+says wins.
+
+So pick one deliberately:
+
+- Happy to be on Standard → leave the file alone.
+- Want to stay where you are → change that one line to match. `0.5c-512mb` is
+  the $7 "Starter" tier.
+
+There is no wrong answer, only a surprising one. Change the file, not the
+dashboard, or the next sync will just undo you.
+
+### 0b. What workspace plan are you on, and do you need it?
+
+Dashboard → **Workspace Settings** → Plan.
+
+The plan document says the Pro workspace at $25/mo is required because on Hobby
+"services go to sleep when inactive". **That is not how it works, and it may be
+costing you $300 a year for nothing.**
+
+Spin-down is a property of the FREE *instance type*, not of the Hobby
+*workspace plan*. Render's own docs are explicit that the workspace plan only
+decides which platform features you get, and that a service's compute plan is
+chosen separately. A service on a paid instance type stays always-on in a
+Hobby workspace, and the Hobby workspace itself is $0.
+
+What you actually give up on Hobby:
+
+| | Hobby ($0) | Pro ($25/mo) |
+|---|---|---|
+| Team members | 1 | unlimited |
+| Services | up to 25 | more |
+| Always-on paid services | yes | yes |
+| Cron jobs, workers, blueprints | yes | yes |
+| Autoscaling, preview environments | no | yes |
+| HTTP request logs, latency metrics | no | yes |
+| Log retention | shorter | longer |
+
+For one person running one app, Hobby is very likely enough. The honest reasons
+to be on Pro: **someone else needs their own dashboard login** (a second seat -
+your contractor, a business partner), or you want the longer log retention and
+request-level metrics when something misbehaves in the studio.
+
+Worth ten minutes of your attention before it renews. If you are already on Pro
+and it turns out you do not need it, that is the single biggest line item in
+the whole plan document.
+
+*(Cron jobs have no free instance type - a cron always runs on a paid one. That
+is the instance, not the workspace, and it is the ~$1/mo already in the sums.)*
+
+---
+
 ## Step 1 - Get a Firebase service account key
 
 The cron job talks to Firestore as the server, not as a signed-in trainer, so
@@ -138,7 +202,28 @@ and it reads an empty database and reports no error at all.
 
 ---
 
-## Step 4 - Check it works
+## Step 4 - Turn on failure notifications
+
+This one genuinely matters and cannot be done from `render.yaml` - it is
+dashboard-only.
+
+Dashboard → **Integrations → Notifications** (workspace default), or a
+service's **Settings** for a per-service override. Set at least "Only failure
+notifications" by email.
+
+A cron job is the one kind of service that can fail completely silently. A web
+service falling over is obvious - the app stops working. A 3am job that throws
+looks exactly like a 3am job that worked: nothing happens, nobody is awake, and
+the leaderboards just quietly stop updating until somebody notices the numbers
+are stale. The alert is the only thing standing between a broken job and finding
+out weeks later.
+
+You want notifications for: failed deploys, failed cron runs, and unhealthy
+services.
+
+---
+
+## Step 5 - Check it works
 
 The cron will not run until 3am, so do not wait for it. Open
 `journey-cron-leaderboards` → **Trigger Run** → watch the log. Healthy looks
@@ -163,6 +248,27 @@ If you see a warning that `leaderboards/global` is approaching 1 MB, that is
 worth telling me about - Firestore rejects documents over 1 MiB, and the fix
 (sharding the leaderboard per machine) wants doing before it starts failing at
 3am rather than after.
+
+---
+
+## Optional dashboard settings, and what to ignore
+
+Everything below is dashboard-only. None of it is required.
+
+**Worth doing**
+- **Failure notifications** - Step 4. Do this one.
+- **Custom domain** - Settings → Custom Domains, if you ever want the app on
+  your own domain rather than `onrender.com`. Render handles the certificate.
+
+**Leave alone for now**
+- **Autoscaling** - Pro only, and pointless at studio scale. One instance is
+  handling this fine.
+- **Persistent disk** - you have no files on disk to keep; everything lives in
+  Firestore. Adding one also stops zero-downtime deploys.
+- **Health check path** - already set to `/healthz` by the blueprint.
+- **Scaling to more instances** - the app is stateless so it would work, but
+  there is no reason yet.
+- **Docker / custom build images** - the Node runtime is doing the job.
 
 ---
 
