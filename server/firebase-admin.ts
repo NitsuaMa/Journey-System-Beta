@@ -96,7 +96,7 @@ export function initAdmin(): admin.app.App {
       projectId:
         process.env.VITE_FIREBASE_PROJECT_ID ||
         config.projectId ||
-        (serviceAccount as { projectId?: string }).projectId,
+        (serviceAccount as unknown as { project_id?: string }).project_id,
     });
     return cachedApp;
   }

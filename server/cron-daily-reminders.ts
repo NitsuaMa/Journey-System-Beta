@@ -5,9 +5,14 @@
  *
  * WHAT IT DOES
  * ------------
- * Reads every schedule document whose startTime falls inside today (today as
- * the STUDIO reckons it, not as the UTC server clock does), and writes one
- * queued notification per client into notificationQueue. It does not send
+ * Reads every schedule document whose startTime falls inside today - today as
+ * REMINDER_TIMEZONE reckons it, not as the UTC server clock does - and writes
+ * one queued notification per client into notificationQueue.
+ *
+ * NOTE: one timezone for all studios. Studio.timezone is a real field and a
+ * studio outside Eastern would get its day boundary from New York. Fine while
+ * every studio is Eastern; revisit by grouping the query per studio timezone
+ * if that ever stops being true. It does not send
  * anything itself - server/worker.ts does the sending, so a slow or flaky
  * provider can never make this job overrun its window.
  *

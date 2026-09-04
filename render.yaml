@@ -96,9 +96,21 @@ services:
     startCommand: npm start
     healthCheckPath: /healthz   # server.ts already answers this
     autoDeployTrigger: commit   # replaces the deprecated `autoDeploy: true`
-    # NOTE: `region` is deliberately absent. A service's region cannot be
-    # changed after it is created, so naming the wrong one here is at best
-    # ignored and at worst a sync error. Render keeps the region it has.
+    # NOTE: no service in this file sets `region`, on purpose.
+    #
+    # For THIS service it cannot help: region is fixed at creation, so naming
+    # one here is at best ignored. For the four new services, omitting it means
+    # Render's default, Oregon. If your web service is somewhere else you get a
+    # split-region deployment - which today is harmless, because every one of
+    # these services talks to Firestore over the public internet and never to
+    # each other.
+    #
+    # It stops being harmless the day you uncomment Key Value or Postgres at
+    # the bottom of this file: those DO use Render's private network, and a
+    # service in the wrong region loses it. Region is immutable, so fixing it
+    # then means deleting and recreating the services. If you plan to add
+    # either, look up your web service's region in the dashboard now and add
+    # `region: <that one>` to the four new services below before syncing.
     envVars:
       - key: NODE_VERSION
         value: "22"          # matches "engines": { "node": "22.x" }
@@ -153,7 +165,6 @@ services:
     name: journey-worker
     runtime: node
     plan: 0.5c-512mb       # "Starter" - $7/mo, 0.5 CPU, 512 MB
-    region: oregon         # <-- set this to the SAME region as the web service
     branch: master
     buildCommand: npm ci && npm run build:backend
     startCommand: npm run start:worker
@@ -174,12 +185,21 @@ services:
       # from one.
       - key: FIREBASE_SERVICE_ACCOUNT
         sync: false
-      # Everything except the final send is live. Flip this to "false" on the
-      # day a real SMS/email provider is wired into deliver() in
-      # server/worker.ts - and not a moment before, or every queued
-      # notification fails and retries five times.
+      # Everything except the final send is live. In dry run the worker parks
+      # each document as "dry_run" rather than "sent", so the existing backlog
+      # is inspected rather than consumed and can be replayed once a provider
+      # exists. Flip to "false" only after wiring one into deliver() in
+      # server/worker.ts - before that, every notification just fails.
       - key: NOTIFICATION_DRY_RUN
         value: "true"
+      # How close a session must be for a reminder about it to make sense.
+      # onBookingReminderWrite in functions/src/index.ts queues a reminder the
+      # moment a booking is created - possibly weeks ahead - so without this
+      # gate the worker's first run would text every client with a future
+      # booking. Anything further out is skipped, and the daily cron queues the
+      # real day-of reminder.
+      - key: REMINDER_WINDOW_HOURS
+        value: "24"
 
   # ===========================================================================
   # 3. CRON - daily session reminders (server/cron-daily-reminders.ts)
@@ -198,7 +218,6 @@ services:
     name: journey-cron-daily-reminders
     runtime: node
     plan: 0.5c-512mb
-    region: oregon         # <-- match the web service
     branch: master
     schedule: "0 11 * * *"
     buildCommand: npm ci && npm run build:backend
@@ -231,7 +250,6 @@ services:
     name: journey-cron-coach-report
     runtime: node
     plan: 0.5c-512mb
-    region: oregon         # <-- match the web service
     branch: master
     schedule: "0 0 * * 1"
     buildCommand: npm ci && npm run build:backend
@@ -272,7 +290,6 @@ services:
     name: journey-cron-leaderboards
     runtime: node
     plan: 0.5c-512mb
-    region: oregon         # <-- match the web service
     branch: master
     schedule: "0 7 * * *"
     buildCommand: npm ci && npm run build:backend

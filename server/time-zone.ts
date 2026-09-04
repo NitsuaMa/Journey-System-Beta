@@ -74,3 +74,15 @@ export function startOfWeekIn(tz: string, at: Date = new Date()): Date {
   const back = Math.max(0, order.indexOf(weekday));
   return startOfDaysAgoIn(tz, back, startOfDayIn(tz, todayYmd));
 }
+
+/**
+ * Local start of the day `days` AFTER the local day containing `at`.
+ * The +12h is not decoration: adding 7 * 24h to a local midnight across the
+ * autumn DST change lands at 23:00 the previous evening, and the date read off
+ * that instant is a day early.
+ */
+export function startOfDaysAheadIn(tz: string, days: number, at: Date = new Date()): Date {
+  const todayStart = startOfDayIn(tz, ymdIn(tz, at));
+  const rough = new Date(todayStart.getTime() + days * 24 * 60 * 60 * 1000 + 12 * 60 * 60 * 1000);
+  return startOfDayIn(tz, ymdIn(tz, rough));
+}

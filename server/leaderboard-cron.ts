@@ -126,6 +126,19 @@ export async function calculateLeaderboards() {
     // 5. Save Materialized View
     const lastUpdated = new Date().toISOString();
     
+    // A Firestore document is capped at 1 MiB. machineData holds a
+    // clientPlacements entry per machine per active client, so this grows with
+    // the client base and will one day cross the limit at 3am with nothing but
+    // an INVALID_ARGUMENT to show for it. Warn while there is still room.
+    const globalPayload = { lastUpdated, scope: 'global', machineData };
+    const approxBytes = Buffer.byteLength(JSON.stringify(globalPayload), 'utf8');
+    if (approxBytes > 800_000) {
+      console.warn(
+        `[LeaderboardCron-${cronId}] leaderboards/global is ~${Math.round(approxBytes / 1024)} kB. ` +
+          'Firestore rejects documents over 1 MiB - shard by machine before this stops working.',
+      );
+    }
+
     // Global Leaderboard
     await database.collection('leaderboards').doc('global').set({
       lastUpdated,

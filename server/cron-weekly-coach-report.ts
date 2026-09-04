@@ -4,9 +4,13 @@
  * Schedule: 0 0 * * 1  (00:00 UTC Monday = 8pm Eastern Sunday in summer,
  *                       7pm Sunday in winter)
  *
- * Counts the week each trainer actually worked - completed sessions, no-shows,
- * cancellations, how many distinct clients, and the busiest day - and queues
+ * Counts the whole Monday-to-Sunday week each trainer worked - completed
+ * sessions, no-shows, cancellations, distinct clients, busiest day - and queues
  * one weekly_coach_report notification per trainer for the worker to send.
+ *
+ * The window is the full week, deliberately including the few hours after the
+ * job fires on Sunday evening. Ending it at the fire time would lose every
+ * late-Sunday session from every report forever.
  *
  * The numbers come from the schedules collection, which is the one place a
  * session's outcome is recorded (Completed / No-Show / Cancelled / Scheduled).
@@ -17,7 +21,7 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { runCron } from "./cron-runtime.ts";
 import { getDb } from "./firebase-admin.ts";
-import { startOfWeekIn, ymdIn } from "./time-zone.ts";
+import { startOfDaysAgoIn, startOfDaysAheadIn, startOfWeekIn, ymdIn } from "./time-zone.ts";
 
 const TZ = process.env.REMINDER_TIMEZONE || "America/New_York";
 const QUEUE = "notificationQueue";
@@ -37,18 +41,36 @@ async function queueWeeklyCoachReports(): Promise<void> {
   const db = getDb();
 
   const now = new Date();
-  const weekStart = startOfWeekIn(TZ, now);
+  let weekStart = startOfWeekIn(TZ, now);
+
+  // Two things this guards against. First, the window must be the WHOLE
+  // Monday-to-Monday week, not Monday-to-right-now: ending it at the fire time
+  // drops Sunday-evening sessions out of this week's report, and the next run
+  // starts from the following Monday, so they are never counted at all.
+  // Second, if REMINDER_TIMEZONE is ever set to a zone at or east of UTC, then
+  // at 00:00 UTC Monday it is already Monday there, startOfWeekIn returns the
+  // week that has not happened yet, and the job cheerfully reports nothing at
+  // all with a green tick. Stepping back a week is the honest answer.
+  if (now.getTime() - weekStart.getTime() < 24 * 60 * 60 * 1000) {
+    console.log(
+      `[coach-report] only ${Math.round((now.getTime() - weekStart.getTime()) / 3600000)}h ` +
+        `into the local week - reporting the previous week instead`,
+    );
+    weekStart = startOfDaysAgoIn(TZ, 7, weekStart);
+  }
+
+  const weekEnd = startOfDaysAheadIn(TZ, 7, weekStart);
   const weekStartYmd = ymdIn(TZ, weekStart);
 
   console.log(
     `[coach-report] week of ${weekStartYmd} (${TZ}): ` +
-      `${weekStart.toISOString()} -> ${now.toISOString()}`,
+      `${weekStart.toISOString()} -> ${weekEnd.toISOString()}`,
   );
 
   const snap = await db
     .collection("schedules")
     .where("startTime", ">=", Timestamp.fromDate(weekStart))
-    .where("startTime", "<=", Timestamp.fromDate(now))
+    .where("startTime", "<", Timestamp.fromDate(weekEnd))
     .get();
 
   console.log(`[coach-report] ${snap.size} booking(s) in the window`);
@@ -127,7 +149,7 @@ async function queueWeeklyCoachReports(): Promise<void> {
           createdAt: Timestamp.now(),
           payload: {
             weekStart: weekStartYmd,
-            weekEnd: ymdIn(TZ, now),
+            weekEnd: ymdIn(TZ, new Date(weekEnd.getTime() - 1000)),
             sessionsCompleted: coach.completed,
             noShows: coach.noShows,
             cancelled: coach.cancelled,

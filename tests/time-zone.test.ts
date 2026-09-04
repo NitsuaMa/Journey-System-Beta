@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   startOfDayIn,
   startOfDaysAgoIn,
+  startOfDaysAheadIn,
   startOfWeekIn,
   ymdIn,
 } from "../server/time-zone.ts";
@@ -59,5 +60,38 @@ describe("startOfDaysAgoIn", () => {
     expect(startOfDaysAgoIn(TZ, 7, new Date("2026-11-05T15:00:00Z")).toISOString()).toBe(
       "2026-10-29T04:00:00.000Z",
     );
+  });
+});
+
+describe("startOfDaysAheadIn", () => {
+  it("lands on the right calendar day a week later in summer", () => {
+    const weekStart = startOfDayIn(TZ, "2026-08-31");
+    expect(startOfDaysAheadIn(TZ, 7, weekStart).toISOString()).toBe("2026-09-07T04:00:00.000Z");
+  });
+
+  it("does not slip a day backwards across the autumn DST change", () => {
+    // The week of Mon Oct 26 2026 contains the Nov 1 fall-back. Naively adding
+    // 7 * 24h to local midnight lands at 23:00 on Sunday Nov 1, whose DATE is a
+    // day early - the bug this helper exists to avoid.
+    const weekStart = startOfDayIn(TZ, "2026-10-26");
+    expect(startOfDaysAheadIn(TZ, 7, weekStart).toISOString()).toBe("2026-11-02T05:00:00.000Z");
+  });
+
+  it("does not slip a day forwards across the spring DST change", () => {
+    const weekStart = startOfDayIn(TZ, "2026-03-02");
+    expect(startOfDaysAheadIn(TZ, 7, weekStart).toISOString()).toBe("2026-03-09T04:00:00.000Z");
+  });
+
+  it("gives the coach report a full seven-day window from its real fire time", () => {
+    // The cron fires at 00:00 UTC Monday, which is 8pm Sunday in New York.
+    const fireTime = new Date("2026-09-07T00:00:00Z");
+    const weekStart = startOfWeekIn(TZ, fireTime);
+    const weekEnd = startOfDaysAheadIn(TZ, 7, weekStart);
+    expect(weekStart.toISOString()).toBe("2026-08-31T04:00:00.000Z");
+    expect(weekEnd.toISOString()).toBe("2026-09-07T04:00:00.000Z");
+    // A 9pm Sunday session is inside the week it belongs to, even though the
+    // job fired an hour before it.
+    const lateSunday = new Date("2026-09-07T01:00:00Z");
+    expect(lateSunday >= weekStart && lateSunday < weekEnd).toBe(true);
   });
 });

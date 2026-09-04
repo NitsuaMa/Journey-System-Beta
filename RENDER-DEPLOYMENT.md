@@ -26,12 +26,28 @@ job the plan assigns to Postgres.
 
 ### The one thing you should know before anything else
 
-**The worker is not speculative.** `functions/src/index.ts` has been writing
-`booking_reminder` documents into the `notificationQueue` collection every time
-a booking lands for a studio with reminders enabled. Nothing has ever read them
-back out. If reminders have been enabled for a while, there is a pile of them
-sitting there right now. The worker is the missing half of a feature you
-already paid to have built.
+**The worker is not speculative, and its first run needs care.**
+`functions/src/index.ts` has two functions writing into `notificationQueue`
+already, and nothing has ever read them back out:
+
+- `onBookingReminderWrite` files a `booking_reminder` the *instant a booking is
+  created* - for a session that might be three weeks away.
+- `sendDailySummary` files a `daily_summary` per studio at 6am ET.
+
+So if reminders have been enabled for any studio for a while, there is a pile
+of documents sitting in that collection right now, and a naive worker turned
+loose on it would text every client who has a future booking - about a session
+they have not got to yet. Two guards in `server/worker.ts` exist for exactly
+this:
+
+- a reminder for a session more than `REMINDER_WINDOW_HOURS` (24) away is
+  **skipped**, not sent - the daily cron queues the real day-of reminder
+- before sending, it checks whether another queued document for the same
+  booking was already delivered, because the Cloud Function and the cron can
+  both describe the same session
+
+And the whole thing ships with `NOTIFICATION_DRY_RUN=true`, which sends
+nothing at all. Do not turn that off on day one.
 
 ---
 
@@ -88,6 +104,14 @@ fifth new web service, the name in `render.yaml` no longer matches the real one
 - fix the name, do not proceed. Render matches by name and nothing else, and
 two web services both serving the app is a confusing afternoon.
 
+**Before you approve: check the region.** Every service in `render.yaml` leaves
+`region` unset, so the four new ones will be created in Render's default,
+Oregon. If your web service lives somewhere else that is a split-region
+deployment - harmless today (nothing here talks to anything but Firestore), but
+region cannot be changed later, and it would matter if you ever switch on Key
+Value or Postgres. If you think you might, look up the web service's region now
+and add `region: <that one>` to the four new services first.
+
 Render will then prompt for every `sync: false` value it does not already
 have. There is no shared env group here, because Render does not allow a
 `sync: false` variable inside one - so each service carries its own list.
@@ -126,10 +150,20 @@ and it reads an empty database and reports no error at all.
 [worker] watching notificationQueue (batch=25, maxAttempts=5, dryRun=true)
 ```
 
-If reminders have been enabled for any studio, expect it to immediately find
-the backlog and log a `DRY RUN` line per document. That is the pile of unsent
-reminders draining for the first time. Nothing leaves the building - `dryRun`
-is on.
+If anything is queued, expect it to work through the backlog immediately,
+logging one line per document. Nothing leaves the building. Expect a mix of:
+
+- `DRY RUN ... would send ...` - a document it would have delivered, parked as
+  `status: "dry_run"`
+- `skipped ... session is 412h away ...` - a booking-time reminder for a
+  session too far off to remind anyone about
+- `FAILED ... No handler for notification type "x"` - only if some other
+  producer exists that this worker does not know about, and worth telling me
+  about if you see one
+
+`dry_run` is deliberately not `sent`. The documents stay distinguishable, so
+the backlog can be replayed later by flipping them back to `queued` rather
+than being quietly consumed by a test.
 
 **Crons.** They will not run until their scheduled time, so do not wait.
 Open one → **Trigger Run** → watch the log. The leaderboard job is the safest
@@ -159,8 +193,13 @@ studio document in Firestore, then:
    `status: "sent"` with a `result` field saying `dry-run: ...`
 
 Trigger the cron a second time. It should report everything as *already
-queued* and send nothing - reminders are written at a fixed document id per
-booking per day precisely so a retry cannot double-text anyone.
+queued* and write nothing new - reminders use a fixed document id per booking
+per day, so the cron cannot duplicate its own work.
+
+That covers the cron duplicating itself. The other direction - the Cloud
+Function and the cron both describing one session - is handled in the worker,
+which checks for an already-delivered sibling before it sends. Two producers,
+two different guards; neither one covers the other.
 
 That is the whole pipeline proven, with nothing having reached a client.
 
@@ -176,10 +215,17 @@ do:
 2. Fill in the two spots marked `>>> WIRE A PROVIDER IN HERE <<<` in
    `server/worker.ts`
 3. Add the provider's API key to the worker as a `sync: false` env var
-4. **Then** set `NOTIFICATION_DRY_RUN` to `false` on the worker
+4. Decide what to do with the `dry_run` backlog - replay what still matters by
+   setting those documents back to `status: "queued"`, or leave them
+5. **Then** set `NOTIFICATION_DRY_RUN` to `false` on the worker
 
 Do them in that order. Flipping the flag first makes every notification fail
-five times and park itself as `failed`.
+on the spot.
+
+One thing to pass the provider when you get there: the notification's document
+id, as an idempotency key if it supports one. If a send succeeds but the write
+recording it fails, the sweep will eventually retry that document - an
+idempotency key is what stops the client getting a second message.
 
 ---
 
