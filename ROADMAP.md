@@ -2,9 +2,27 @@
 
 A living document. We update it every working session — newest decisions at the top of each list. (Contractor-scope backend items live in PROJECT_TRACKER.md.)
 
-_Last updated: Sep 3, 2026_
+_Last updated: Sep 4, 2026_
 
 ---
+
+## 🚀 Now — Render infrastructure (Sep 4) — branch `render-infrastructure`, one commit per phase
+
+Turns the Build-a-Render-Plan PDF into a real `render.yaml` blueprint, and builds the two things the plan assumed already existed. `npx tsc --noEmit` clean, `npm run build:backend` green, 8 new timezone tests passing. **Nothing has been applied on Render yet** — the whole procedure is in `RENDER-DEPLOYMENT.md`.
+
+The finding that shaped it: **`notificationQueue` is a queue with no consumer.** `functions/src/index.ts` has been writing `booking_reminder` documents into it on every booking for a reminders-enabled studio, and nothing has ever read one back out. The plan's "Background Worker" is not a hypothetical for later — it is the missing half of a feature already built and paid for.
+
+The second finding: **the plan's required Postgres does not fit this app.** It calls Render Postgres "the main database for the application"; every read and write in this repo goes to Firestore, and there is no `pg` dependency, no SQL and no migrations anywhere. Key Value's headline benefit in the plan — keeping coaches logged in — does not apply either, because Firebase Auth holds a refreshing token in the browser and there is no server-side session to cache. Both are written out in `render.yaml` but commented, each with the specific condition that would justify switching it on. That is ~6/month not spent on empty instances, and ~8/month all-in instead of the PDF's ~4.
+
+- [x] ~~Phase 1 — shared admin bootstrap~~ — `server/firebase-admin.ts` resolves a service-account key from `FIREBASE_SERVICE_ACCOUNT` (raw JSON or base64, with the escaped-newline repair that turns an opaque OpenSSL DECODER error into a working key) and falls back to ADC locally. **Real bug fixed:** `leaderboard-cron.ts` called `initializeApp({ projectId })` with no credential at all — fine on a laptop with a gcloud login, guaranteed to throw on Render. It also binds the NAMED database explicitly, because `getFirestore(app)` would connect to `(default)`, which in this project is empty, and read nothing while reporting nothing.
+- [x] ~~Phase 2 — background worker~~ — `server/worker.ts` watches `notificationQueue` with a Firestore listener rather than a polling loop (pushed to in ~1s, one read per changed doc, versus 8,640 mostly-empty queries a day). Claims each document in a transaction so a redeploy overlap cannot text the same client twice; retries to `WORKER_MAX_ATTEMPTS` then parks it as `failed` with the error on the document; a slow sweep rescues anything left `processing` by a SIGTERM mid-send. `deliver()` is stubbed and logs exactly what would go out — there is no SMS/email provider in the project yet.
+- [x] ~~Phase 3 — cron jobs~~ — daily reminders and the Sunday coach report. Both only ENQUEUE; the worker sends, so a slow provider can never make a per-minute-billed cron run overrun. Reminders use a deterministic doc id (`reminder_<scheduleId>_<date>`) with `create()` not `add()`, so a re-run reports "already queued" instead of double-texting. Queries filter on `startTime` alone and sort status out in memory — adding status to the query needs a composite index `firestore.indexes.json` does not have, and it would have died on FAILED_PRECONDITION the first morning. `server/time-zone.ts` works out "today" the way the studio reckons it, because Render runs cron in UTC and never shifts for DST.
+- [x] ~~Phase 4 — build + start scripts~~ — `build:backend` bundles the four backend entry points and deliberately does not run Vite (the worker and crons have no front end; running it would add ~10s to every worker deploy and every cron run). It calls `setup-firebase-config.cjs` directly because `prebuild` only fires for `build`. `tests/time-zone.test.ts` covers both DST transitions in both directions and the Sunday-evening week boundary.
+- [x] ~~Phase 5 — `render.yaml`~~ — web + worker + 3 crons, current CPU/RAM plan ids (`1c-2g`, `0.5c-512mb`) with the PDF's tier names in comments. The web service keeps the name `maxstrength-app-beta` because Render adopts an existing service by name and nothing else — rename it and a sync stands up a second copy beside the live one. Two env groups, so the service-account key goes to the worker and crons and stays off the public-facing web service.
+- [x] ~~Phase 6 — `RENDER-DEPLOYMENT.md`~~ — the apply procedure, a safe end-to-end test of the reminder pipeline that reaches no client, and the six errors this setup actually produces.
+- [ ] **Apply the blueprint** — push the branch, merge to `master` (every service says `branch: master`), then New + → Blueprint. Check the plan it shows you says *update* for the web service and *create* for the other four before approving.
+- [ ] **Set `region:` on the four new services** to match whatever region the web service is already in (the file says `oregon`; that is a placeholder, and the web service's own region is deliberately left out because it cannot be changed after creation).
+- [ ] Follow-ups: pick an SMS/email provider and fill in the two marked spots in `deliver()`, then flip `NOTIFICATION_DRY_RUN` to false — in that order. The "5-year export" the PDF describes has no queue behind it yet; when it gets one it should be a second document type on the same worker, not a new service. Revisit Key Value only when a specific repeated Firestore read is measurably costing something.
 
 ## 📅 Now — Calendar redesign (Sep 3) — branch `calendar-redesign`, one commit per phase
 
