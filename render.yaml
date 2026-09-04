@@ -54,50 +54,29 @@
 
 
 # -----------------------------------------------------------------------------
-# SHARED ENVIRONMENT GROUPS
+# ABOUT THE ENVIRONMENT VARIABLES BELOW
 # -----------------------------------------------------------------------------
-# Set a value once, use it in four services. Without groups you would paste the
-# same Firebase project id into the web service, the worker and all three cron
-# jobs, and one day you would rotate it in four places and miss the fifth.
+# `sync: false` means "Render prompts me for this value once, then leaves it
+# alone forever". No secret is ever written into this file - this file is in git.
 #
-# `sync: false` means "Render prompts me for this value the first time and then
-# leaves it alone". No secret is ever written into this file - it is in git.
+# It would be tidier to declare the shared Firebase values once in an
+# `envVarGroups:` block and reference it from each service. Render does not
+# allow that here: the spec says outright that you cannot define an environment
+# variable with `sync: false` inside an environment group, and a group is
+# exactly where the secrets would have to live. So they are repeated per
+# service instead.
+#
+# That repetition is smaller than it looks, because the backend services need
+# far less than the web service does. The eight VITE_FIREBASE_* values exist to
+# be baked into the BROWSER bundle at build time. The worker and the crons have
+# no browser: they only need to know which project and which database to open,
+# plus a credential to open it with. Three variables, not eight - and one fewer
+# copy of your Firebase API key sitting on a machine that has no use for it.
+#
+# If you would rather manage the shared ones in one place, create an
+# environment group in the Render dashboard by hand and attach it there. Just
+# do not try to declare it in this file.
 # -----------------------------------------------------------------------------
-envVarGroups:
-  # Firebase project identity. The web service needs these AT BUILD TIME (Vite
-  # inlines VITE_* variables into the browser bundle, and
-  # scripts/setup-firebase-config.cjs writes firebase-applet-config.json from
-  # them). The worker and crons need the project and database ids to know which
-  # Firestore to open - this project does NOT use the "(default)" database, and
-  # connecting to the wrong one reads an empty database without erroring.
-  - name: journey-firebase-client
-    envVars:
-      - key: VITE_FIREBASE_PROJECT_ID
-        sync: false
-      - key: VITE_FIREBASE_FIRESTORE_DATABASE_ID
-        sync: false
-      - key: VITE_FIREBASE_API_KEY
-        sync: false
-      - key: VITE_FIREBASE_APP_ID
-        sync: false
-      - key: VITE_FIREBASE_AUTH_DOMAIN
-        sync: false
-      - key: VITE_FIREBASE_STORAGE_BUCKET
-        sync: false
-      - key: VITE_FIREBASE_MESSAGING_SENDER_ID
-        sync: false
-      - key: VITE_FIREBASE_MEASUREMENT_ID
-        sync: false
-
-  # The service-account key: full admin rights over Firestore, bypassing every
-  # rule in firestore.rules. It is in its own group so it can be attached to the
-  # worker and the crons and NOT to the web service, which has never needed it.
-  # A key that is not on a public-facing service cannot leak from one.
-  - name: journey-firebase-admin
-    envVars:
-      - key: FIREBASE_SERVICE_ACCOUNT
-        sync: false
-
 
 services:
   # ===========================================================================
@@ -121,9 +100,26 @@ services:
     # changed after it is created, so naming the wrong one here is at best
     # ignored and at worst a sync error. Render keeps the region it has.
     envVars:
-      - fromGroup: journey-firebase-client
       - key: NODE_VERSION
         value: "22"          # matches "engines": { "node": "22.x" }
+      # Vite bakes every VITE_* value into the browser bundle at BUILD time, so
+      # these have to be present for the build, not just at runtime.
+      - key: VITE_FIREBASE_PROJECT_ID
+        sync: false
+      - key: VITE_FIREBASE_FIRESTORE_DATABASE_ID
+        sync: false
+      - key: VITE_FIREBASE_API_KEY
+        sync: false
+      - key: VITE_FIREBASE_APP_ID
+        sync: false
+      - key: VITE_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: VITE_FIREBASE_STORAGE_BUCKET
+        sync: false
+      - key: VITE_FIREBASE_MESSAGING_SENDER_ID
+        sync: false
+      - key: VITE_FIREBASE_MEASUREMENT_ID
+        sync: false
       # DO NOT add NODE_ENV=production here. `npm ci` then skips
       # devDependencies, vite and esbuild disappear, and `npm run build` fails
       # on a machine where it worked yesterday. Express does not need it.
@@ -163,10 +159,21 @@ services:
     startCommand: npm run start:worker
     autoDeployTrigger: commit
     envVars:
-      - fromGroup: journey-firebase-client
-      - fromGroup: journey-firebase-admin
       - key: NODE_VERSION
         value: "22"
+      # Which Firestore to open. This project does NOT use the "(default)"
+      # database - point a service at the wrong one and it reads an empty
+      # database and reports no error whatsoever.
+      - key: VITE_FIREBASE_PROJECT_ID
+        sync: false
+      - key: VITE_FIREBASE_FIRESTORE_DATABASE_ID
+        sync: false
+      # Full admin rights over Firestore, bypassing every rule in
+      # firestore.rules. Deliberately NOT on the web service, which has never
+      # needed it: a key that is not on a public-facing service cannot leak
+      # from one.
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
       # Everything except the final send is live. Flip this to "false" on the
       # day a real SMS/email provider is wired into deliver() in
       # server/worker.ts - and not a moment before, or every queued
@@ -197,10 +204,21 @@ services:
     buildCommand: npm ci && npm run build:backend
     startCommand: npm run cron:reminders
     envVars:
-      - fromGroup: journey-firebase-client
-      - fromGroup: journey-firebase-admin
       - key: NODE_VERSION
         value: "22"
+      # Which Firestore to open. This project does NOT use the "(default)"
+      # database - point a service at the wrong one and it reads an empty
+      # database and reports no error whatsoever.
+      - key: VITE_FIREBASE_PROJECT_ID
+        sync: false
+      - key: VITE_FIREBASE_FIRESTORE_DATABASE_ID
+        sync: false
+      # Full admin rights over Firestore, bypassing every rule in
+      # firestore.rules. Deliberately NOT on the web service, which has never
+      # needed it: a key that is not on a public-facing service cannot leak
+      # from one.
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
       - key: REMINDER_TIMEZONE
         value: America/New_York
 
@@ -219,10 +237,21 @@ services:
     buildCommand: npm ci && npm run build:backend
     startCommand: npm run cron:coach-report
     envVars:
-      - fromGroup: journey-firebase-client
-      - fromGroup: journey-firebase-admin
       - key: NODE_VERSION
         value: "22"
+      # Which Firestore to open. This project does NOT use the "(default)"
+      # database - point a service at the wrong one and it reads an empty
+      # database and reports no error whatsoever.
+      - key: VITE_FIREBASE_PROJECT_ID
+        sync: false
+      - key: VITE_FIREBASE_FIRESTORE_DATABASE_ID
+        sync: false
+      # Full admin rights over Firestore, bypassing every rule in
+      # firestore.rules. Deliberately NOT on the web service, which has never
+      # needed it: a key that is not on a public-facing service cannot leak
+      # from one.
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
       - key: REMINDER_TIMEZONE
         value: America/New_York
 
@@ -249,10 +278,21 @@ services:
     buildCommand: npm ci && npm run build:backend
     startCommand: npm run cron:leaderboards
     envVars:
-      - fromGroup: journey-firebase-client
-      - fromGroup: journey-firebase-admin
       - key: NODE_VERSION
         value: "22"
+      # Which Firestore to open. This project does NOT use the "(default)"
+      # database - point a service at the wrong one and it reads an empty
+      # database and reports no error whatsoever.
+      - key: VITE_FIREBASE_PROJECT_ID
+        sync: false
+      - key: VITE_FIREBASE_FIRESTORE_DATABASE_ID
+        sync: false
+      # Full admin rights over Firestore, bypassing every rule in
+      # firestore.rules. Deliberately NOT on the web service, which has never
+      # needed it: a key that is not on a public-facing service cannot leak
+      # from one.
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
 
   # ===========================================================================
   # 6. RENDER KEY VALUE - NOT ENABLED (and not needed yet)

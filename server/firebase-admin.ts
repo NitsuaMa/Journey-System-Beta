@@ -126,6 +126,17 @@ export function getDb(): Firestore {
   const databaseId =
     process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || config.firestoreDatabaseId;
 
+  if (!databaseId) {
+    // The single most expensive silent failure available here. Everything
+    // connects, every query succeeds, every result is empty, and nothing
+    // anywhere reports a problem.
+    console.warn(
+      "[firebase-admin] No VITE_FIREBASE_FIRESTORE_DATABASE_ID set and none in " +
+        "firebase-applet-config.json. Falling back to the \"(default)\" database, " +
+        "which this project does not use - expect every read to come back empty.",
+    );
+  }
+
   cachedDb =
     databaseId && databaseId !== "(default)"
       ? getFirestore(app, databaseId)

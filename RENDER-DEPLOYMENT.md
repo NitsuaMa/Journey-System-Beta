@@ -88,22 +88,28 @@ fifth new web service, the name in `render.yaml` no longer matches the real one
 - fix the name, do not proceed. Render matches by name and nothing else, and
 two web services both serving the app is a confusing afternoon.
 
-Render will then prompt for every `sync: false` value, which is all of these:
+Render will then prompt for every `sync: false` value it does not already
+have. There is no shared env group here, because Render does not allow a
+`sync: false` variable inside one - so each service carries its own list.
 
-**Group `journey-firebase-client`** - copy from your local `.env`:
-`VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_FIRESTORE_DATABASE_ID`,
-`VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_AUTH_DOMAIN`,
-`VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`,
-`VITE_FIREBASE_MEASUREMENT_ID`
+**On the web service** (most of these are already set on the live service, and
+Render leaves existing values alone - but have them to hand): the eight
+`VITE_FIREBASE_*` values from your local `.env`, plus `GEMINI_API_KEY`,
+`MINDBODY_API_KEY`, `MINDBODY_SOURCE_NAME`, `MINDBODY_SOURCE_PASSWORD`,
+`MINDBODY_WEBHOOK_SECRET`, `VITE_MICROSOFT_TENANT_ID`.
 
-**Group `journey-firebase-admin`**: `FIREBASE_SERVICE_ACCOUNT` - the base64
-string from Step 1.
+**On the worker and each of the three crons** - three values each:
 
-**On the web service**: `GEMINI_API_KEY`, `MINDBODY_API_KEY`,
-`MINDBODY_SOURCE_NAME`, `MINDBODY_SOURCE_PASSWORD`, `MINDBODY_WEBHOOK_SECRET`,
-`VITE_MICROSOFT_TENANT_ID`. These are already set on the live service and
-`sync: false` means Render leaves existing values alone - but it may still ask,
-so have them to hand.
+| Variable | Value |
+|---|---|
+| `VITE_FIREBASE_PROJECT_ID` | same as your `.env` |
+| `VITE_FIREBASE_FIRESTORE_DATABASE_ID` | same as your `.env` |
+| `FIREBASE_SERVICE_ACCOUNT` | the base64 string from Step 1 |
+
+The backend services do not get the other five Firebase values, and they do not
+get any Mindbody or Gemini keys. Those exist to be baked into the browser
+bundle or used by the API routes; a worker has no browser and serves no
+requests. Fewer copies of a secret is fewer places it can leak from.
 
 `VITE_FIREBASE_FIRESTORE_DATABASE_ID` is the one to get right. This project
 does not use Firestore's `(default)` database. Point a service at the wrong one
@@ -195,9 +201,10 @@ Two things about that table are load-bearing:
 Running Vite on them adds about ten seconds to every worker deploy and to
 *every single cron run* - and cron is billed by the minute.
 
-**`build:backend` calls `scripts/setup-firebase-config.cjs` itself.** The
-`prebuild` hook only fires for `build`, and `firebase-applet-config.json` is
-gitignored, so on a fresh Render checkout the file simply is not there.
+**`build:backend` does not generate `firebase-applet-config.json`.** That file
+is gitignored and exists to feed the browser bundle; the backend services read
+their project and database ids straight from their environment variables
+instead, which is why they each need those two set.
 
 ---
 
