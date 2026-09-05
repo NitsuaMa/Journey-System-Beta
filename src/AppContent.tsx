@@ -72,8 +72,9 @@ import { useToast } from "./contexts/ToastContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import AccessRequestView from "./components/AccessRequestView";
 // Lazy-loaded: downloaded on first visit to this view, not at app start.
-const TrainerControlHubView = lazy(() =>
-  import("./components/TrainerControlHubView").then((m) => ({ default: m.TrainerControlHubView })),
+// Lazy-loaded: downloaded on first visit to this view, not at app start.
+const TrainerSettingsView = lazy(() =>
+  import("./features/settings").then((m) => ({ default: m.TrainerSettingsView })),
 );
 // Lazy-loaded: downloaded on first visit to this view, not at app start.
 const ClientProfileView = lazy(() =>
@@ -2007,28 +2008,18 @@ export default function AppContent({
               />
             )}
             {currentView === "trainer-hub" && (
-              <TrainerControlHubView
-                activeStudioId={activeStudioId}
+              <TrainerSettingsView
+                authTrainer={authTrainer}
+                studios={studios}
                 trainers={trainers}
                 machines={machines}
-                clients={clients}
-                sessions={sessions}
-                authTrainer={authTrainer}
-                isAdmin={
-                  checkIsAdmin(authTrainer, user?.email || undefined) ||
-                  isOwner(authTrainer)
-                }
-                onAppCleanse={handleAppCleanse}
-                onSeedDemoClient={handleSeedDemoClient}
-                onRestoreMachines={handleRestoreMachines}
+                activeStudioId={activeStudioId}
                 onLogout={handleLogout}
-                onReorderTrainers={() => setIsReorderingTrainers(true)}
                 setView={(view) => {
                   if (view === "leaderboard")
                     setLeaderboardReturnView("trainer-hub");
                   setCurrentView(view as any);
                 }}
-                studios={studios}
               />
             )}
 
