@@ -145,6 +145,7 @@ const ClientClinicalReviewPreloader = lazy(() =>
   import("./components/ClientClinicalReviewPreloader").then((m) => ({ default: m.ClientClinicalReviewPreloader })),
 );
 // Lazy-loaded: downloaded on first visit to this view, not at app start.
+import { FeedbackProvider, FeedbackButton } from "./features/feedback";
 const StudioTasksView = lazy(() =>
   import("./features/studio-tasks").then((m) => ({
     default: m.StudioTasksView,
@@ -1589,6 +1590,7 @@ export default function AppContent({
   const headerRightControls = (
     <div className="flex items-center gap-1 sm:gap-2 shrink-0">
       <ThemeToggle />
+      <FeedbackButton />
       <HubAnnouncementsWidget authTrainer={authTrainer} />
       <Button
         variant="ghost"
@@ -1687,6 +1689,28 @@ export default function AppContent({
 
   return (
     <ErrorBoundary>
+      {/* Mounted once, near the root, so the feedback drawer is reachable from
+          every screen and there is only ever one of it. It reads the live
+          "where am I" values below and snapshots them when it opens. */}
+      <FeedbackProvider
+        author={{
+          id: authTrainer?.id,
+          email: authTrainer?.email,
+          name: authTrainer?.fullName,
+          studioId: activeStudioId,
+        }}
+        view={currentView}
+        studioId={activeStudioId}
+        studioName={activeStudioName}
+        clientId={selectedClientId}
+        clientName={
+          selectedClientDoc
+            ? `${selectedClientDoc.firstName} ${selectedClientDoc.lastName}`.trim()
+            : null
+        }
+        sessionId={currentSession?.id ?? null}
+        theme={theme}
+      >
       <div className="flex flex-col h-[100dvh] overflow-hidden bg-background text-foreground font-sans overflow-x-hidden w-full max-w-full">
         {/* Header */}
         {currentView !== "workouts" && (
@@ -2800,6 +2824,7 @@ export default function AppContent({
         onCancel={() => setIsWipeModalOpen(false)}
         isDestructive={true}
       />
+      </FeedbackProvider>
     </ErrorBoundary>
   );
 }

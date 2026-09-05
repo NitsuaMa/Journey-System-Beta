@@ -16,6 +16,9 @@ declare global {
   interface Window {
     __appLoaded?: boolean;
     __earlyErrors?: Record<string, unknown>[];
+    /** Ring buffer of the last 10 reported errors, read by the feedback drawer. */
+    __recentClientErrors?: { message: string; type: string; at: number }[];
+    __appVersion?: string;
   }
 }
 
@@ -34,6 +37,22 @@ const MAX_ERROR_REPORTS = 50;
 let errorReportCount = 0;
 
 function reportClientError(payload: Record<string, unknown>) {
+  // Mirrored into a small ring buffer the beta feedback drawer reads, so a
+  // trainer's "it broke" arrives with the actual errors attached. Kept OUTSIDE
+  // the report cap below: the cap exists to stop an error storm from DoSing the
+  // single Node process, and an in-memory array of 10 costs nothing.
+  try {
+    const buf = (window.__recentClientErrors ??= []);
+    buf.push({
+      message: String((payload as { message?: unknown }).message ?? "unknown"),
+      type: String((payload as { type?: unknown }).type ?? "unknown"),
+      at: Date.now(),
+    });
+    if (buf.length > 10) buf.splice(0, buf.length - 10);
+  } catch {
+    /* never let telemetry break the page it is reporting on */
+  }
+
   if (errorReportCount >= MAX_ERROR_REPORTS) return;
   errorReportCount += 1;
   const body =
