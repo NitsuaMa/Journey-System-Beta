@@ -19,6 +19,25 @@ export {
   upkeepRoleOf,
 } from "./types";
 export { MachineUpkeepCard } from "./MachineUpkeepCard";
+export { notifyTaskCompletion } from "./notify";
+export { useStudioRequests, useRequestReplies } from "./useStudioRequests";
+export {
+  createRequest,
+  setRequestClaim,
+  resolveRequest,
+  reopenRequest,
+  addRequestReply,
+  deleteRequest,
+  REQUEST_KIND_LABEL,
+  REQUEST_KIND_HINT,
+} from "./requests";
+export type {
+  TaskRequest,
+  TaskRequestReply,
+  RequestKind,
+  RequestPriority,
+  RequestStatus,
+} from "./requests";
 export { TaskNoteDialog } from "./TaskNoteDialog";
 export {
   setTaskStatus,

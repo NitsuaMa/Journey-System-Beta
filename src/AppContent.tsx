@@ -145,6 +145,7 @@ const ClientClinicalReviewPreloader = lazy(() =>
 );
 // Lazy-loaded: downloaded on first visit to this view, not at app start.
 import { FeedbackProvider, FeedbackButton } from "./features/feedback";
+import { NotificationBell } from "./features/notifications";
 const StudioTasksView = lazy(() =>
   import("./features/studio-tasks").then((m) => ({
     default: m.StudioTasksView,
@@ -1590,6 +1591,13 @@ export default function AppContent({
     <div className="flex items-center gap-1 sm:gap-2 shrink-0">
       <ThemeToggle />
       <FeedbackButton />
+      <NotificationBell
+        trainerId={authTrainer?.id}
+        onNavigate={(view, id) => {
+          if (view === "profile" && id) setSelectedClientId(id);
+          setCurrentView(view as any);
+        }}
+      />
       <HubAnnouncementsWidget authTrainer={authTrainer} />
       <Button
         variant="ghost"
