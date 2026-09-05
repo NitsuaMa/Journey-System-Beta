@@ -106,9 +106,7 @@ const TrainerProfileView = lazy(() =>
 );
 import { StudioSelectionView } from "./components/StudioSelectionView";
 // Lazy-loaded: downloaded on first visit to this view, not at app start.
-const IntegrationsHubView = lazy(() =>
-  import("./components/IntegrationsHubView").then((m) => ({ default: m.IntegrationsHubView })),
-);
+
 import { AppHeader } from "./components/AppHeader";
 import { useTheme } from "./components/ThemeProvider";
 import { ClientsView } from "./components/ClientsView";
@@ -2002,6 +2000,10 @@ export default function AppContent({
                 onUpdateStudio={updateStudio}
                 onUpdateClient={updateClient}
                 activeStudioId={activeStudioId}
+                onSeedDemoClient={handleSeedDemoClient}
+                onRestoreMachines={handleRestoreMachines}
+                onReorderTrainers={() => setIsReorderingTrainers(true)}
+                onAppCleanse={handleAppCleanse}
                 onNavigateProfile={(clientId) => {
                   setSelectedClientId(clientId);
                   setCurrentView("profile");
@@ -2024,16 +2026,6 @@ export default function AppContent({
               />
             )}
 
-            {currentView === "integrations" && (
-              <IntegrationsHubView
-                authTrainer={authTrainer}
-                activeStudioId={activeStudioId}
-                onBack={() => setCurrentView("trainer-hub")}
-                studios={studios}
-                trainers={trainers}
-                clients={clients}
-              />
-            )}
 
             {currentView === "calendar" && (
               <ErrorBoundary

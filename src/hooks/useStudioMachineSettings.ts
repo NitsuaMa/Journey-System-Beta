@@ -9,10 +9,11 @@ import { StudioMachineSetting } from "../types";
  * Machine Settings, Aug 2026. Keyed by machineId for easy lookup at each
  * call site: `settingsByMachineId[machine.id]`.
  *
- * Used by: TrainerMachineEditor (the Hub's Machine Settings editor, which
- * both reads and writes these), and any read-only consumer that needs a
- * studio's custom order/possession — currently the Client Profile Journey
- * grid and the Active Session table's unfocused view.
+ * Used by: the Catalog's StudioSetupCard (which both reads and writes these -
+ * it replaced the Hub's Machine Settings editor in Sep 2026, see that file for
+ * why the editor moved into the Catalog), and any read-only consumer that
+ * needs a studio's custom order/possession — currently the Client Profile
+ * Journey grid and the Active Session table's unfocused view.
  */
 export function useStudioMachineSettings(studioId: string | null) {
   const [settingsByMachineId, setSettingsByMachineId] = useState<

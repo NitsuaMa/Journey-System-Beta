@@ -11,7 +11,7 @@ import { InsightsDashboardView } from "./InsightsDashboardView";
 // import { RetentionDashboardView } from "./RetentionDashboardView";
 import { MindbodyDashboard } from "./mindbody/MindbodyDashboard";
 import { AdminLimboQueue } from "./AdminLimboQueue";
-import { Bug, Megaphone, Activity, Users, Building2, TrendingUp, Zap, Inbox, Dumbbell, ClipboardList, Download, Bell, Webhook } from "lucide-react";
+import { Bug, Megaphone, Activity, Users, Building2, TrendingUp, Zap, Inbox, Dumbbell, ClipboardList, Download, Bell, Webhook, Database } from "lucide-react";
 import { AdminRoutineTemplatesTab } from "./routines/AdminRoutineTemplatesTab";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +19,7 @@ import { AdminSystemClients } from "./AdminSystemClients";
 import { AdminMachinesTab } from "./machines/AdminMachinesTab";
 import { AdminDataReportsTab, AdminAlertsTab } from "../features/admin-data";
 import { IntegrationsHubView } from "./IntegrationsHubView";
+import { AdminSystemToolsTab } from "./AdminSystemToolsTab";
 
 interface Props {
   authTrainer: Trainer;
@@ -44,6 +45,15 @@ interface Props {
    * that only shows up on a pay run.
    */
   activeStudioId?: string | null;
+  /**
+   * System tools that used to hang off the trainer hub. Passed in rather than
+   * implemented here because they act on the app as a whole and their
+   * confirmation modals already live in AppContent.
+   */
+  onSeedDemoClient?: () => void;
+  onRestoreMachines?: () => void;
+  onReorderTrainers?: () => void;
+  onAppCleanse?: () => void;
 }
 
 export function AdminDashboardView({
@@ -62,6 +72,10 @@ export function AdminDashboardView({
   onUpdateClient,
   onNavigateProfile,
   activeStudioId = null,
+  onSeedDemoClient,
+  onRestoreMachines,
+  onReorderTrainers,
+  onAppCleanse,
 }: Props) {
   type AdminTab =
     | "metrics"
@@ -77,6 +91,7 @@ export function AdminDashboardView({
     | "insights"
     | "mindbody"
     | "integrations"
+    | "system"
     | "limbo";
   const [activeTab, setActiveTab] = useState<AdminTab>("metrics");
 
@@ -88,6 +103,8 @@ export function AdminDashboardView({
     // Site id, auth key and the staff schedule import. Relocated out of the
     // trainer hub (F): these credentials configure the whole Mindbody link.
     if (id === "integrations") return isAdmin;
+    // Seeds, restores and a full wipe. Admin only, obviously.
+    if (id === "system") return isAdmin;
     // Releasing a booking assigns it to a studio, so this is admin-only for the
     // same reason studio management is.
     if (id === "limbo") return isAdmin;
@@ -156,6 +173,7 @@ export function AdminDashboardView({
         { id: "integrations", label: "Integrations", icon: <Webhook className="w-4 h-4" /> },
         { id: "limbo", label: "Limbo", icon: <Inbox className="w-4 h-4" /> },
         { id: "bugs", label: "Bug Reports", icon: <Bug className="w-4 h-4" /> },
+        { id: "system", label: "System Tools", icon: <Database className="w-4 h-4" /> },
       ],
     },
   ];
@@ -337,6 +355,15 @@ export function AdminDashboardView({
         )}
 
         {activeTab === "bugs" && <AdminBugReports />}
+
+        {activeTab === "system" && (
+          <AdminSystemToolsTab
+            onSeedDemoClient={onSeedDemoClient}
+            onRestoreMachines={onRestoreMachines}
+            onReorderTrainers={onReorderTrainers}
+            onAppCleanse={onAppCleanse}
+          />
+        )}
       </div>
     </div>
   );
