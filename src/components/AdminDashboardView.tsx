@@ -11,12 +11,14 @@ import { InsightsDashboardView } from "./InsightsDashboardView";
 // import { RetentionDashboardView } from "./RetentionDashboardView";
 import { MindbodyDashboard } from "./mindbody/MindbodyDashboard";
 import { AdminLimboQueue } from "./AdminLimboQueue";
-import { Bug, Megaphone, Activity, Users, Building2, TrendingUp, Zap, Inbox, Dumbbell, ClipboardList } from "lucide-react";
+import { Bug, Megaphone, Activity, Users, Building2, TrendingUp, Zap, Inbox, Dumbbell, ClipboardList, Download, Bell, Webhook } from "lucide-react";
 import { AdminRoutineTemplatesTab } from "./routines/AdminRoutineTemplatesTab";
 import { cn } from "@/lib/utils";
 
 import { AdminSystemClients } from "./AdminSystemClients";
 import { AdminMachinesTab } from "./machines/AdminMachinesTab";
+import { AdminDataReportsTab, AdminAlertsTab } from "../features/admin-data";
+import { IntegrationsHubView } from "./IntegrationsHubView";
 
 interface Props {
   authTrainer: Trainer;
@@ -35,6 +37,13 @@ interface Props {
   onUpdateStudio?: (id: string, updates: Partial<Studio>) => Promise<void>;
   onUpdateClient?: (id: string, updates: Partial<Client>) => Promise<void>;
   onNavigateProfile?: (clientId: string) => void;
+  /**
+   * The studio the admin is currently working in. Data & Reports and Alerts
+   * both act on ONE studio, so they need it explicitly rather than inferring
+   * a home studio: a payroll export for the wrong location is a quiet mistake
+   * that only shows up on a pay run.
+   */
+  activeStudioId?: string | null;
 }
 
 export function AdminDashboardView({
@@ -52,6 +61,7 @@ export function AdminDashboardView({
   onUpdateStudio,
   onUpdateClient,
   onNavigateProfile,
+  activeStudioId = null,
 }: Props) {
   type AdminTab =
     | "metrics"
@@ -61,9 +71,12 @@ export function AdminDashboardView({
     | "machines"
     | "routines"
     | "announcements"
+    | "alerts"
+    | "data"
     | "bugs"
     | "insights"
     | "mindbody"
+    | "integrations"
     | "limbo";
   const [activeTab, setActiveTab] = useState<AdminTab>("metrics");
 
@@ -72,11 +85,22 @@ export function AdminDashboardView({
   const canSee = (id: AdminTab): boolean => {
     if (id === "users") return isFranchiseOwnerOrAdmin;
     if (id === "mindbody") return isAdmin;
+    // Site id, auth key and the staff schedule import. Relocated out of the
+    // trainer hub (F): these credentials configure the whole Mindbody link.
+    if (id === "integrations") return isAdmin;
     // Releasing a booking assigns it to a studio, so this is admin-only for the
     // same reason studio management is.
     if (id === "limbo") return isAdmin;
     if (id === "bugs") return isAdmin;
     if (id === "announcements") return isFranchiseOwnerOrAdmin;
+    // Relocated out of the trainer hub this round. A payroll CSV covers every
+    // trainer at the studio and the legacy importer writes thousands of
+    // documents from one file picker, so both sit at the same tier as staff
+    // management rather than one tap from a trainer's settings screen.
+    if (id === "data") return isFranchiseOwnerOrAdmin;
+    // Arms outbound SMS/email to clients. Owner-and-above for the obvious
+    // reason: an accidental tap messages real people with nobody watching.
+    if (id === "alerts") return isFranchiseOwnerOrAdmin;
     if (id === "machines") return isFranchiseOwnerOrAdmin;
     // Studio leaders author their own location's templates, so this is
     // deliberately NOT gated to franchise-owner-or-admin the way machines
@@ -111,6 +135,7 @@ export function AdminDashboardView({
         { id: "machines", label: "Machines", icon: <Dumbbell className="w-4 h-4" /> },
         { id: "routines", label: "Routine Templates", icon: <ClipboardList className="w-4 h-4" /> },
         { id: "insights", label: "Insights", icon: <TrendingUp className="w-4 h-4" /> },
+        { id: "data", label: "Data & Reports", icon: <Download className="w-4 h-4" /> },
       ],
     },
     {
@@ -119,6 +144,7 @@ export function AdminDashboardView({
       tier: "primary",
       tabs: [
         { id: "announcements", label: "Announcements", icon: <Megaphone className="w-4 h-4" /> },
+        { id: "alerts", label: "Alerts & Comms", icon: <Bell className="w-4 h-4" /> },
       ],
     },
     {
@@ -127,6 +153,7 @@ export function AdminDashboardView({
       tier: "secondary",
       tabs: [
         { id: "mindbody", label: "Mindbody", icon: <Zap className="w-4 h-4" /> },
+        { id: "integrations", label: "Integrations", icon: <Webhook className="w-4 h-4" /> },
         { id: "limbo", label: "Limbo", icon: <Inbox className="w-4 h-4" /> },
         { id: "bugs", label: "Bug Reports", icon: <Bug className="w-4 h-4" /> },
       ],
@@ -283,6 +310,32 @@ export function AdminDashboardView({
         {activeTab === "limbo" && (
           <AdminLimboQueue studios={studios} clients={clients} />
         )}
+        {activeTab === "integrations" && (
+          <IntegrationsHubView
+            authTrainer={authTrainer}
+            activeStudioId={activeStudioId}
+            studios={studios}
+            trainers={trainers}
+            clients={clients}
+            onBack={() => setActiveTab("mindbody")}
+          />
+        )}
+
+        {activeTab === "data" && (
+          <AdminDataReportsTab
+            trainers={trainers}
+            clients={clients}
+            studios={studios}
+            machines={machines}
+            activeStudioId={activeStudioId}
+            authTrainer={authTrainer}
+          />
+        )}
+
+        {activeTab === "alerts" && (
+          <AdminAlertsTab studios={studios} activeStudioId={activeStudioId} />
+        )}
+
         {activeTab === "bugs" && <AdminBugReports />}
       </div>
     </div>

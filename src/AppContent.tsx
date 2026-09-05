@@ -2001,6 +2001,7 @@ export default function AppContent({
                 onShowNewClients={() => setShowNewClientsDialog(true)}
                 onUpdateStudio={updateStudio}
                 onUpdateClient={updateClient}
+                activeStudioId={activeStudioId}
                 onNavigateProfile={(clientId) => {
                   setSelectedClientId(clientId);
                   setCurrentView("profile");
