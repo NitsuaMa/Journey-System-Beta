@@ -282,6 +282,39 @@ service cloud.firestore {
         allow read, write: if isAuthenticated() && request.auth.uid == trainerId;
       }
 
+      // IN-APP NOTIFICATIONS (round: Settings tiers & Task Board, Sep 2026).
+      //
+      // The one place in this file where a signed-in user writes into ANOTHER
+      // user's document tree, so it is worth being explicit about why and
+      // about what that does and does not allow.
+      //
+      // Why: notifications are written client-side, by the device of whoever
+      // completed the task or replied to the request. That keeps the feature
+      // free of Cloud Functions like the rest of studio-tasks — no deploy
+      // step, no cold start, nothing riding on the Cloud Run pipeline.
+      //
+      // What it allows: CREATE only. A caller cannot read, update or delete
+      // anyone else's notifications, cannot attribute one to a colleague
+      // (actor.id is pinned to request.auth.uid), and cannot create one that
+      // is already marked read — so nobody can slip a notification past a
+      // recipient's badge. The worst a bad actor can do is put a truthfully
+      // attributed line in a colleague's bell, which is the feature.
+      //
+      // Reading, marking read and deleting are the owner's alone, by uid in
+      // the path, exactly like the private task lists above.
+      match /notifications/{notificationId} {
+        allow read, update, delete:
+          if isAuthenticated() && request.auth.uid == trainerId;
+
+        allow create: if isAuthenticated()
+                      && isAnyAuthenticatedTrainer()
+                      && request.resource.data.actor.id == request.auth.uid
+                      && request.resource.data.kind is string
+                      && request.resource.data.title is string
+                      && request.resource.data.title.size() <= 200
+                      && request.resource.data.readAt == null;
+      }
+
     }
 
     // CLIENTS: All authenticated trainers can read clients (needed to start sessions)
@@ -633,6 +666,66 @@ service cloud.firestore {
         allow read: if isAuthenticated();
         allow create, update: if isAuthenticated() && isAnyAuthenticatedTrainer();
         allow delete: if isSuperAdmin() || isStudioOwnerOrHeadTrainer(studioId);
+      }
+
+      // FLOATING REQUESTS — ad-hoc asks and low-priority studio comms
+      // (round: Settings tiers & Task Board, Sep 2026).
+      //
+      // A separate collection from tasks because it has a different
+      // lifecycle: a checklist resets nightly, a shift-cover ask never does.
+      // See src/features/studio-tasks/requests.ts.
+      //
+      // Any trainer may post one and any trainer may claim, reply to or
+      // resolve one — that IS the feature. The one thing pinned down is
+      // authorship: createdBy.id must be the caller, so a request cannot be
+      // posted in a colleague's name, and createdBy cannot be rewritten
+      // afterwards to reassign an awkward one.
+      //
+      // Delete stays with management and the author. resolveRequest is the
+      // normal path and keeps the thread; deleting is for a post made in
+      // error, and Firestore does not cascade to the replies subcollection.
+      match /taskRequests/{requestId} {
+        allow read: if isAuthenticated();
+
+        allow create: if isAuthenticated()
+                      && isAnyAuthenticatedTrainer()
+                      && request.resource.data.createdBy.id == request.auth.uid
+                      && request.resource.data.status == 'open'
+                      && request.resource.data.title is string
+                      && request.resource.data.title.size() <= 200;
+
+        allow update: if isAuthenticated()
+                      && isAnyAuthenticatedTrainer()
+                      && request.resource.data.createdBy.id
+                         == resource.data.createdBy.id;
+
+        allow delete: if isSuperAdmin()
+                      || isStudioOwnerOrHeadTrainer(studioId)
+                      || resource.data.createdBy.id == request.auth.uid;
+
+        // Replies are append-mostly: anyone may add one, only the author may
+        // edit or remove their own, and management can clear anything.
+        match /replies/{replyId} {
+          allow read: if isAuthenticated();
+          allow create: if isAuthenticated()
+                        && isAnyAuthenticatedTrainer()
+                        && request.resource.data.author.id == request.auth.uid
+                        && request.resource.data.body is string
+                        && request.resource.data.body.size() <= 2000;
+          allow update, delete: if isSuperAdmin()
+                                || isStudioOwnerOrHeadTrainer(studioId)
+                                || resource.data.author.id == request.auth.uid;
+        }
+      }
+
+      // A studio's own names for its work. Authoring these sets vocabulary
+      // for the whole location, and a renamed category can change which
+      // upkeep row a completed task feeds (see upkeepRoleOf in
+      // features/studio-tasks/types.ts), so it is a management write.
+      match /taskCategories/{categoryId} {
+        allow read: if isAuthenticated();
+        allow create, update, delete:
+          if isSuperAdmin() || isStudioOwnerOrHeadTrainer(studioId);
       }
     }
 

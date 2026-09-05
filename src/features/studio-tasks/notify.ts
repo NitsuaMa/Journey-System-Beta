@@ -23,6 +23,27 @@ import type { TaskAuthor } from "./mutations";
 import type { TaskRow } from "./types";
 import { taskScopeOf } from "./types";
 
+/**
+ * Does finishing this template's task earn a notification?
+ *
+ * Pure and exported so the volume policy - the thing that decides whether the
+ * bell stays useful - is unit-testable without Firestore.
+ *
+ * The default is the interesting part: an explicit choice wins, and absent one
+ * a ONE-OFF task notifies while a RECURRING task does not. "Restock the InBody
+ * paper before Thursday" is a favour someone asked for and the asker wants to
+ * know it is handled; "empty the bins" on a Tuesday is not news.
+ */
+export function shouldNotifyOnComplete(template: {
+  notifyCreatorOnComplete?: boolean;
+  recurrence?: { type?: string };
+}): boolean {
+  if (typeof template.notifyCreatorOnComplete === "boolean") {
+    return template.notifyCreatorOnComplete;
+  }
+  return template.recurrence?.type === "once";
+}
+
 export interface NotifyTaskCompletionParams {
   row: TaskRow;
   author: TaskAuthor | null;
@@ -60,9 +81,7 @@ export async function notifyTaskCompletion(
   }
 
   // Filter 1: recurring work is silent unless a manager asked to hear it.
-  const recurring = template.recurrence?.type !== "once";
-  const wanted = template.notifyCreatorOnComplete ?? !recurring;
-  if (!wanted) return;
+  if (!shouldNotifyOnComplete(template)) return;
 
   await notify({
     to: template.createdBy,
