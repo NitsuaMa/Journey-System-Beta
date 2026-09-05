@@ -11,6 +11,7 @@ import type { Client } from "../../types";
 import { taskLocationOf, taskScopeOf } from "./types";
 import type { TaskScope } from "./types";
 import { useStudioMachines } from "../../hooks/useStudioMachines";
+import { useStudioTaskCategories } from "./useStudioTaskCategories";
 import {
   deleteTaskTemplate,
   newTemplateId,
@@ -18,7 +19,7 @@ import {
   setTaskTemplateActive,
 } from "./mutations";
 import {
-  CATEGORY_LABEL,
+  categoryLabel,
   CLIENT_ACTION_LABEL,
   SHIFT_LABEL,
   TASK_SHIFTS,
@@ -99,6 +100,10 @@ export function TaskManager({
   const { machines } = useStudioMachines(studioId, {
     bridgeWhenRosterEmpty: true,
   });
+  // The studio's own labels, merged over the four built-ins. A studio that has
+  // never opened a category editor still gets a sensible list rather than an
+  // empty picker.
+  const { categories } = useStudioTaskCategories(studioId);
   const [draft, setDraft] = useState<TaskTemplate | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -263,7 +268,7 @@ export function TaskManager({
                     {t.title}
                   </span>
                   <span className="block text-[11px] text-muted-foreground">
-                    {CATEGORY_LABEL[t.category]} ·{" "}
+                    {categoryLabel(t.category, categories)} ·{" "}
                     {t.recurrence.type === "weekly"
                       ? (t.recurrence.daysOfWeek ?? []).length === 0
                         ? "Every day"
@@ -383,9 +388,12 @@ export function TaskManager({
                   set("category", e.target.value as TaskCategory)
                 }
               >
-                {(Object.keys(CATEGORY_LABEL) as TaskCategory[]).map((c) => (
-                  <option key={c} value={c}>
-                    {CATEGORY_LABEL[c]}
+                {/* The studio's own list, not a hard-coded four. A studio
+                    that renames Cleaning keeps the upkeep behaviour, because
+                    the id is what carries upkeepRole — see types.ts. */}
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
                   </option>
                 ))}
               </select>
@@ -712,6 +720,28 @@ export function TaskManager({
                 <span className="block text-muted-foreground">
                   For inspections, where "done" without a finding is not an
                   answer.
+                </span>
+              </span>
+            </label>
+
+            <label className="flex items-start gap-2.5">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4"
+                checked={
+                  draft.notifyCreatorOnComplete ??
+                  draft.recurrence.type === "once"
+                }
+                onChange={(e) =>
+                  set("notifyCreatorOnComplete", e.target.checked)
+                }
+              />
+              <span className="text-[12px] leading-relaxed">
+                <strong>Tell me when someone finishes this.</strong>
+                <span className="block text-muted-foreground">
+                  In-app only — nothing is emailed or texted. Off by default
+                  for repeating tasks: forty cleaning receipts a day is how a
+                  studio learns to ignore the bell.
                 </span>
               </span>
             </label>

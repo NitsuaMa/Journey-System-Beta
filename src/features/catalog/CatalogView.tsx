@@ -18,6 +18,7 @@ import {
   TaskNoteDialog,
   setTaskStatus,
   studioLocation,
+  notifyTaskCompletion,
   useMachineUpkeep,
   useStudioTasks,
   type TaskRow,
@@ -164,6 +165,19 @@ export function CatalogView({ machines, authTrainer }: CatalogViewProps) {
         note,
         flagged,
       });
+      // The Catalog is where a broken pad actually gets noticed, so this
+      // path matters more than the board's: a trainer standing at the machine
+      // flags it here, and the studio leader hears about it without anyone
+      // walking to the To-Do screen.
+      if (status === "done") {
+        await notifyTaskCompletion({
+          row,
+          author,
+          studioId: activeStudioId,
+          flagged,
+          note,
+        });
+      }
       toastSuccess(status === "done" ? "Marked done." : "Re-opened.");
     } catch (err) {
       console.error("Failed to update machine upkeep:", err);

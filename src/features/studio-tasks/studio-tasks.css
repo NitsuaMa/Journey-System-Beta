@@ -288,3 +288,109 @@
   cursor: pointer; }
 .stu__note:hover { background: var(--st-surface-2); color: var(--st-ink); }
 .stu__note:focus-visible { outline: 2px solid var(--st-live); outline-offset: 2px; }
+
+/* ==========================================================================
+   REQUESTS LANE — the floating, ad-hoc half of the board.
+   Round: Settings tiers & Task Board, Sep 2026.
+
+   Sits above the checklist because a cover request is time-sensitive in a way
+   that "take out the trash" is not, and interleaving the two by timestamp is
+   how "can anyone take my 5pm?" gets missed. Visually cooler than a task card
+   (no fill, a dashed edge) so the lane reads as conversation rather than as
+   work anyone is being held to.
+   ========================================================================== */
+
+.stq { margin-top: 0.75rem; border: 1px dashed var(--st-border-strong);
+  border-radius: var(--st-radius); background: var(--st-surface); overflow: hidden; }
+
+.stq__head { display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.625rem 0.875rem; border-bottom: 1px solid var(--st-border);
+  background: var(--st-surface-2); color: var(--st-ink-2); }
+.stq__title { margin: 0; font-size: 11px; font-weight: 800; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--st-ink-2); }
+.stq__count { display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+  background: var(--st-live-fill); color: var(--st-live);
+  font-size: 10px; font-weight: 800; }
+.stq__new { margin-left: auto; display: inline-flex; align-items: center; gap: 0.3rem;
+  min-height: 34px; padding: 0 0.7rem; border: 1px solid var(--st-border);
+  border-radius: 10px; background: var(--st-surface); color: var(--st-ink-2);
+  font: inherit; font-size: 10px; font-weight: 800; letter-spacing: 0.1em;
+  text-transform: uppercase; cursor: pointer; white-space: nowrap; }
+.stq__new:focus-visible { outline: 2px solid var(--st-live); outline-offset: 1px; }
+
+.stq__composer { padding: 0.75rem 0.875rem; border-bottom: 1px solid var(--st-border);
+  background: var(--st-surface-2); display: flex; flex-direction: column; gap: 0.5rem; }
+.stq__kinds { display: flex; flex-wrap: wrap; gap: 4px; }
+.stq__kind { display: inline-flex; align-items: center; gap: 0.3rem;
+  min-height: 34px; padding: 0 0.6rem; border: 1px solid var(--st-border);
+  border-radius: 999px; background: var(--st-surface); color: var(--st-ink-muted);
+  font: inherit; font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; cursor: pointer; }
+.stq__kind[aria-pressed="true"] { border-color: var(--st-hero); color: var(--st-ink);
+  background: var(--st-surface); box-shadow: inset 0 0 0 1px var(--st-hero); }
+
+.stq__row { display: flex; gap: 0.4rem; }
+.stq__input { flex: 1; min-width: 0; min-height: 40px; padding: 0 0.7rem;
+  border: 1px solid var(--st-border); border-radius: 10px;
+  background: var(--st-surface); color: var(--st-ink); font: inherit; font-size: 13px; }
+.stq__post { display: inline-flex; align-items: center; gap: 0.3rem;
+  min-height: 40px; padding: 0 0.8rem; border: 1px solid var(--st-hero);
+  border-radius: 10px; background: var(--st-hero); color: #fff;
+  font: inherit; font-size: 10px; font-weight: 800; letter-spacing: 0.1em;
+  text-transform: uppercase; cursor: pointer; }
+.stq__post:disabled { border-color: var(--st-border); background: var(--st-surface-3);
+  color: var(--st-ink-faint); cursor: default; }
+
+.stq__empty { margin: 0; padding: 0.875rem; color: var(--st-ink-muted);
+  font-size: 12px; line-height: 1.5; }
+
+.stq__list { list-style: none; margin: 0; padding: 0; }
+.stq__item { border-bottom: 1px solid var(--st-border); }
+.stq__item:last-child { border-bottom: 0; }
+.stq__item[data-urgent] { box-shadow: inset 3px 0 0 var(--st-hero); }
+
+.stq__item-main { display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.6rem 0.875rem; flex-wrap: wrap; }
+.stq__icon { display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; flex: none; border-radius: 9px;
+  background: var(--st-surface-2); color: var(--st-ink-muted); }
+.stq__item-text { flex: 1; min-width: 12rem; }
+.stq__item-title { display: block; font-size: 13px; font-weight: 700;
+  color: var(--st-ink); overflow-wrap: anywhere; }
+.stq__item-sub { display: block; margin-top: 1px; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.06em; color: var(--st-ink-muted); }
+
+.stq__act { display: inline-flex; align-items: center; gap: 0.25rem;
+  min-height: 34px; padding: 0 0.6rem; border: 1px solid var(--st-border);
+  border-radius: 10px; background: var(--st-surface-2); color: var(--st-ink-2);
+  font: inherit; font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; cursor: pointer; white-space: nowrap; }
+.stq__act[aria-pressed="true"] { border-color: var(--st-live); color: var(--st-live); }
+.stq__act:disabled { opacity: 0.5; cursor: default; }
+.stq__act:focus-visible { outline: 2px solid var(--st-live); outline-offset: 1px; }
+
+.stq__thread { padding: 0 0.875rem 0.75rem 3.25rem; display: flex;
+  flex-direction: column; gap: 0.5rem; }
+.stq__detail { margin: 0; font-size: 12px; color: var(--st-ink-2); line-height: 1.5; }
+.stq__replies { list-style: none; margin: 0; padding: 0; display: flex;
+  flex-direction: column; gap: 0.35rem; }
+.stq__reply { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem;
+  padding: 0.4rem 0.6rem; border-radius: 10px; background: var(--st-surface-2); }
+.stq__reply-who { font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--st-live); }
+.stq__reply-body { flex: 1; min-width: 8rem; font-size: 12px; color: var(--st-ink);
+  overflow-wrap: anywhere; }
+.stq__reply-when { font-size: 9px; font-weight: 700; color: var(--st-ink-faint); }
+
+/* ── claim chip on a task row ───────────────────────────────────────────── */
+.st__claim { display: inline-flex; align-items: center; gap: 0.25rem;
+  min-height: 34px; padding: 0 0.55rem; border: 1px solid var(--st-border);
+  border-radius: 10px; background: var(--st-surface-2); color: var(--st-ink-muted);
+  font: inherit; font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; cursor: pointer; white-space: nowrap; }
+.st__claim[aria-pressed="true"] { border-color: var(--st-live); color: var(--st-live);
+  background: var(--st-live-fill); }
+.st__claim:focus-visible { outline: 2px solid var(--st-live); outline-offset: 1px; }
+.st__claim:disabled { opacity: 0.5; cursor: default; }
+

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   Check,
   ClipboardList,
+  Sparkles,
   Settings2,
   Minus,
   ExternalLink,
@@ -12,13 +13,15 @@ import type { Client, Trainer } from "../../types";
 import { useActiveStudio } from "../../ActiveStudioContext";
 import { useToast } from "../../contexts/ToastContext";
 import { formatStudioDate, studioDateKey } from "../../lib/studio-time";
-import { setManyTaskStatuses, setTaskStatus } from "./mutations";
+import { setManyTaskStatuses, setTaskClaim, setTaskStatus } from "./mutations";
 import { taskLocationOf, taskScopeOf } from "./types";
 import type { TaskLocation } from "./types";
 import { auth } from "../../firebase";
 import { TaskManager } from "./TaskManager";
 import { TaskNoteDialog } from "./TaskNoteDialog";
 import { useStudioTasks } from "./useStudioTasks";
+import { RequestsLane } from "./RequestsLane";
+import { notifyTaskCompletion } from "./notify";
 import {
   SHIFT_LABEL,
   type ClientTaskAction,
@@ -184,6 +187,20 @@ export function StudioTasksView({
     }
   };
 
+  const toggleClaim = async (row: TaskRow) => {
+    const mine = row.instance?.claimedBy?.id === author?.id;
+    await run(
+      () =>
+        setTaskClaim({
+          location: taskLocationOf(row.template ?? {}, activeStudioId!),
+          planned: row,
+          author,
+          claimed: !mine,
+        }),
+      mine ? "Handed back." : "You've got it.",
+    );
+  };
+
   const toggleRow = async (row: TaskRow) => {
     // A task that must carry a note goes through the dialog rather than
     // silently completing without one.
@@ -193,13 +210,20 @@ export function StudioTasksView({
     }
     const next = row.status === "done" ? "open" : "done";
     await run(
-      () =>
-        setTaskStatus({
+      async () => {
+        await setTaskStatus({
           location: taskLocationOf(row.template ?? {}, activeStudioId!),
           planned: row,
           status: next,
           author,
-        }),
+        });
+        // Only on completion, and notify() decides whether anyone actually
+        // hears about it — see notify.ts for the four filters that keep this
+        // from becoming 40 receipts a day.
+        if (next === "done") {
+          await notifyTaskCompletion({ row, author, studioId: activeStudioId });
+        }
+      },
       next === "done" ? "Marked done." : "Re-opened.",
     );
   };
@@ -233,15 +257,24 @@ export function StudioTasksView({
   const submitNote = async (note: string, flagged: boolean) => {
     if (!noteRow) return;
     await run(
-      () =>
-        setTaskStatus({
+      async () => {
+        await setTaskStatus({
           location: taskLocationOf(noteRow.template ?? {}, activeStudioId!),
           planned: noteRow,
           status: "done",
           author,
           note,
           flagged,
-        }),
+        });
+        // A flagged machine always travels, opt-in or not.
+        await notifyTaskCompletion({
+          row: noteRow,
+          author,
+          studioId: activeStudioId,
+          flagged,
+          note,
+        });
+      },
       flagged ? "Flagged and marked done." : "Marked done.",
     );
   };
@@ -334,6 +367,16 @@ export function StudioTasksView({
             </span>
           </div>
         )}
+
+        {/* Above the checklist on purpose: a cover request is time-sensitive
+            in a way that "take out the trash" is not, and interleaving the two
+            by timestamp is exactly how "can anyone take my 5pm?" gets missed
+            and how staff go back to texting each other. */}
+        <RequestsLane
+          studioId={activeStudioId}
+          author={author}
+          currentUserId={ownerId}
+        />
 
         {loading && rows.length === 0 && (
           <p className="st__empty">
@@ -464,9 +507,11 @@ export function StudioTasksView({
                           {[
                             row.instance?.completedBy?.name
                               ? `Done by ${row.instance.completedBy.name}`
-                              : row.template?.requiresNote
-                                ? "Note required"
-                                : null,
+                              : row.instance?.claimedBy?.name
+                                ? `${row.instance.claimedBy.name} has this`
+                                : row.template?.requiresNote
+                                  ? "Note required"
+                                  : null,
                             row.shift !== "any" ? SHIFT_LABEL[row.shift] : null,
                             row.category,
                           ]
@@ -490,6 +535,38 @@ export function StudioTasksView({
                         )}
                       </span>
                     </button>
+
+                    {/* Advisory: the tick box beside it stays live for
+                        everyone. A hard lock would mean a trainer claims the
+                        trash at 9am, gets pulled into a consultation, and the
+                        bin stays full because the app said it was handled. */}
+                    {row.status !== "done" && (
+                      <button
+                        type="button"
+                        className="st__claim"
+                        onClick={() => toggleClaim(row)}
+                        disabled={busy}
+                        aria-pressed={
+                          row.instance?.claimedBy?.id === author?.id
+                        }
+                        title={
+                          row.instance?.claimedBy
+                            ? `${row.instance.claimedBy.name} has this`
+                            : "Let the studio know you're on it"
+                        }
+                      >
+                        <Sparkles
+                          size={12}
+                          aria-hidden
+                          className="inline align-middle"
+                        />{" "}
+                        {row.instance?.claimedBy
+                          ? row.instance.claimedBy.id === author?.id
+                            ? "Yours"
+                            : row.instance.claimedBy.name.split(" ")[0]
+                          : "Claim"}
+                      </button>
+                    )}
 
                     {row.kind === "client" &&
                       onOpenClientTask &&
