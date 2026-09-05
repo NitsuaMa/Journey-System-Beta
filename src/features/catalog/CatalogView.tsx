@@ -9,6 +9,7 @@ import { useActiveStudio } from "../../ActiveStudioContext";
 import { AnatomyStage } from "./AnatomyStage";
 import { MachinePickerBar } from "./MachinePickerBar";
 import { MachineDetail } from "./MachineDetail";
+import { StudioSetupCard } from "./StudioSetupCard";
 import { MachinePicker } from "./MachinePicker";
 import { X } from "lucide-react";
 import { machinesForBodySlug } from "./anatomy";
@@ -23,6 +24,8 @@ import {
 } from "../studio-tasks";
 import { useToast } from "../../contexts/ToastContext";
 import { useCatalogMachines } from "./useCatalogMachines";
+import { useStudioMachineSettings } from "../../hooks/useStudioMachineSettings";
+import { isStudioLeader } from "../../lib/permissions";
 import { useLayoutMode } from "./useLayoutMode";
 import type { GroupingMode } from "./types";
 
@@ -79,6 +82,24 @@ export function CatalogView({ machines, authTrainer }: CatalogViewProps) {
   // down and rebuilt while a trainer scrolls the rail.
   const { success: toastSuccess, error: toastError } = useToast();
   const { byMachineId: upkeepById } = useMachineUpkeep(activeStudioId);
+
+  // Read once here for the same reason upkeep is: mounting this inside the
+  // detail pane would tear down and rebuild the listener on every tap in the
+  // rail. Studio settings moved into the Catalog this round - see
+  // StudioSetupCard for why they are not a Trainer Settings shortcut.
+  const { settingsByMachineId } = useStudioMachineSettings(activeStudioId);
+  const canEditStudioSetup = isStudioLeader(authTrainer ?? null);
+
+  const studioSetupFor = (machineId: string, machineName: string) => (
+    <StudioSetupCard
+      machineId={machineId}
+      machineName={machineName}
+      studioId={activeStudioId}
+      setting={settingsByMachineId[machineId]}
+      canEdit={canEditStudioSetup}
+      authorId={authTrainer?.id ?? null}
+    />
+  );
   const { rows: todayTaskRows } = useStudioTasks(activeStudioId);
   const [noteRow, setNoteRow] = useState<TaskRow | null>(null);
   const [upkeepBusy, setUpkeepBusy] = useState(false);
@@ -232,6 +253,7 @@ export function CatalogView({ machines, authTrainer }: CatalogViewProps) {
                 studioName={activeStudio?.name}
                 author={author}
                 upkeep={upkeepFor(selected.id)}
+                studioSetup={studioSetupFor(selected.id, selected.name)}
                 isFlagged={Boolean(upkeepById[selected.id]?.flagged)}
               />
             )}
@@ -263,6 +285,7 @@ export function CatalogView({ machines, authTrainer }: CatalogViewProps) {
           studioName={activeStudio?.name}
           author={author}
           upkeep={upkeepFor(selected.id)}
+          studioSetup={studioSetupFor(selected.id, selected.name)}
           isFlagged={Boolean(upkeepById[selected.id]?.flagged)}
         />
       )}

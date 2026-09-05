@@ -35,6 +35,10 @@ export interface MachineDetailProps {
   author?: { id: string; name: string } | null;
   /** Cleaning/maintenance card, owned by features/studio-tasks. */
   upkeep?: React.ReactNode;
+  /** This studio's settings for this machine. Slotted rather than mounted
+   *  here so the settings document is read once by the host, not re-subscribed
+   *  on every tap in the rail. */
+  studioSetup?: React.ReactNode;
   isFlagged?: boolean;
 }
 
@@ -44,6 +48,7 @@ export function MachineDetail({
   studioName,
   author,
   upkeep,
+  studioSetup,
   isFlagged,
 }: MachineDetailProps) {
   const specs = [
@@ -197,6 +202,17 @@ export function MachineDetail({
                 <li key={i}>{c}</li>
               ))}
             </ul>
+          </Section>
+        )}
+
+        {studioSetup && (
+          <Section
+            id="studio-setup"
+            title="Studio setup"
+            icon={<Settings2 size={14} aria-hidden />}
+            {...section("studio-setup", false)}
+          >
+            {studioSetup}
           </Section>
         )}
 

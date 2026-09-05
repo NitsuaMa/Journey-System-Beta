@@ -1035,3 +1035,144 @@
   font-size: 11px;
   font-weight: 700;
 }
+
+/* ── STUDIO SETUP ─────────────────────────────────────────────────────────
+   This location's adjustable settings for the selected machine. Rows are
+   name / value pairs because that is how a trainer reads them off the card and
+   onto the machine ("G9 S8"), and the value column is fixed-width so a list of
+   five settings still scans in one glance at arm's length. */
+.ssc {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ssc__readonly,
+.ssc__empty {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin: 0;
+  color: var(--cat-ink-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.ssc__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--cat-border);
+  border-radius: var(--cat-radius);
+  overflow: hidden;
+  background: var(--cat-surface);
+}
+
+.ssc__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem 0.4rem 0.7rem;
+  border-bottom: 1px solid var(--cat-border);
+}
+.ssc__row:last-child {
+  border-bottom: 0;
+}
+
+.ssc__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cat-ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ssc__value {
+  width: 4.5rem;
+  flex: none;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--cat-border);
+  border-radius: 8px;
+  background: var(--cat-surface-2);
+  color: var(--cat-ink);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+.ssc__value--static {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-color: transparent;
+  background: transparent;
+}
+
+.ssc__remove,
+.ssc__addbtn {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--cat-border);
+  border-radius: 8px;
+  background: var(--cat-surface-2);
+  color: var(--cat-ink-muted);
+  cursor: pointer;
+}
+.ssc__remove:hover {
+  color: var(--cat-warn);
+}
+.ssc__addbtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ssc__add {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.ssc__draft {
+  flex: 1;
+  min-width: 0;
+  height: 2rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--cat-border);
+  border-radius: 8px;
+  background: var(--cat-surface);
+  color: var(--cat-ink);
+  font-size: 12px;
+}
+
+.ssc__save {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  height: 2.25rem;
+  border: 1px solid var(--cat-hero);
+  border-radius: 10px;
+  background: var(--cat-hero);
+  color: var(--cat-hero-on);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.ssc__save:disabled {
+  border-color: var(--cat-border);
+  background: var(--cat-surface-2);
+  color: var(--cat-ink-muted);
+  cursor: default;
+}
