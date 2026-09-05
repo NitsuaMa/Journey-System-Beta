@@ -630,3 +630,92 @@ manager lives. Same data, no second data model.
 
 Each phase is its own commit, so any single phase can be reverted without
 touching the others.
+
+---
+
+# 4. What actually shipped
+
+Branch `settings-rbac-task-board`, 12 commits, one per phase. Any phase can be
+reverted on its own.
+
+| Commit | Phase |
+|---|---|
+| `2bada7f` | 0 · this document |
+| `d384f52` | 1 · global feedback drawer + context capture (B3) |
+| `c29cc6d` | 2 · lean Trainer Settings screen |
+| `5801920` | 3 · relocate exports, ingestion, alerts, integrations into Admin |
+| `d82434a` | 4 · studio machine settings into the Catalog (A) |
+| `69dadaf` | 5 · delete the trainer control hub |
+| `6a3d235` | 6 · advisory claims + studio-authored categories |
+| `fcdc03a` | 7 · floating requests collection |
+| `3612246` | 8 · in-app notification inbox |
+| `e6b29a2` | 9 · unified board — requests lane, claim chips, notify wiring |
+| `8c3f568` | 10 · firestore rules |
+| `2c0b940` | 11 · Manage view for non-training managers |
+
+**Verification:** production build ✓ (`vite build`, 1m10s). Typecheck 45
+errors, all pre-existing — the branch point had 48, and three went away with
+the deleted code. App test suite 312 passing across 20 files, including 14 new.
+
+## 4.1 Where the build deviated from this proposal
+
+Three places. All are improvements found while implementing, but they are
+deviations and you should know about them.
+
+**No composite index on `taskRequests`.** §2.5 called for
+`(status ASC, createdAt DESC)`. The implementation reads a studio's requests
+unfiltered and sorts client-side instead. It is a small collection, it lets the
+Manage panel show resolved items without a second listener, and it means the
+feature deploys with no index to configure. A query that needs a missing index
+fails silently in the console and loudly on the floor, which is a bad trade for
+the read it would have saved.
+
+**Four system tools were rescued that the brief did not mention.** The demo
+client seeder, the standard-machine restore, the trainer reorder and the full
+app wipe all hung off Hub Settings with no other trigger, so deleting that file
+would have deleted them. They are now Admin → System Backend → System Tools.
+The seeder is the one that mattered: the studios are migrating off FileMaker
+and that cutover needs a demo mode.
+
+**Team Management (C) needed no new code.** `AdminUserDirectory`'s
+`EditTrainerModal` already edits home studio, cross-training access, calendar
+visibility and the Mindbody staff id — everything the trainer-hub panel did. It
+was already at the right tier; only the trainer-facing copy needed deleting.
+
+## 4.2 What is worth checking on the iPad first
+
+In rough order of how likely a screenshot is to change something:
+
+1. **Trainer Settings in portrait.** Three cards, and the third only appears
+   for leaders. If it reads thin to you, the fix is content in the My Studio
+   card, not a fourth module.
+2. **The requests lane above the checklist.** This is the layout call I am
+   least sure about. It is right when there are one or two requests; with six
+   it may push the day's tasks below the fold, and the answer is probably a
+   collapse-after-three.
+3. **Claim chips at 22 machine rows.** Each row now carries a claim button.
+   On a 22-row "wipe down every machine" card that is 22 more targets, and it
+   may need to move behind the group header instead.
+4. **The compliance grid on a narrow screen.** Seven columns plus a task name
+   fits, just. It is the one horizontal scroller in the feature.
+
+## 4.3 Roadmap — what this round sets up next
+
+- **Seed the four built-in categories per studio.** They currently exist only
+  in code as defaults. A studio that wants "Front desk" needs a category
+  editor; the mutations (`saveStudioCategory`, `deleteStudioCategory`) are
+  written and unused, so this is a small UI on top of finished plumbing.
+- **Link requests to clients and machines in the composer.** The fields
+  (`clientId`, `machineId`, `sessionDate`) are in the model and the rules
+  already; only the picker UI is missing. This is what turns "question about
+  Ruth's hip adduction" from chat into something that surfaces on Ruth's
+  session row.
+- **The 💬 marker on the daily schedule** described in §2.6, for a session
+  whose client has an open linked request. Depends on the point above.
+- **A scheduled function to pre-materialize the day's instances.** Not needed
+  — the plan is derived — but it would make the board warm at open instead of
+  computing on first paint. It writes the same deterministic ids, so it
+  collides with nothing.
+- **Run `npm run test:rules`.** The new rules are brace-balanced and reviewed
+  but not emulator-verified; there is no Firebase CLI in the environment this
+  was built in.
