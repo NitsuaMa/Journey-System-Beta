@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { onSnapshot, query, where } from "firebase/firestore";
 import { instancesRef } from "./mutations";
-import type { TaskInstance } from "./types";
+import { upkeepRoleOf } from "./types";
+import type { StudioTaskCategory, TaskInstance } from "./types";
 
 export interface MachineUpkeep {
   /** Most recent completed cleaning task for this machine, if any. */
@@ -24,7 +25,16 @@ export interface MachineUpkeep {
  * Scoped to machine-kind instances only, and read whole rather than per machine:
  * one listener for a studio beats twenty-two that re-subscribe on every tap.
  */
-export function useMachineUpkeep(studioId: string | null) {
+export function useMachineUpkeep(
+  studioId: string | null,
+  /**
+   * The studio's categories. Optional, and the omission is safe: upkeepRoleOf
+   * falls back to the built-in ids, which is what every studio that has never
+   * renamed a category still uses. Pass them and a studio that renamed
+   * "Cleaning" to "Wipe-down" keeps its Last cleaned row.
+   */
+  studioCategories?: StudioTaskCategory[],
+) {
   const [instances, setInstances] = useState<TaskInstance[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -71,14 +81,19 @@ export function useMachineUpkeep(studioId: string | null) {
         entry.flagged = i;
       }
       if (i.status === "done") {
-        if (i.category === "cleaning" && !entry.lastCleaned) entry.lastCleaned = i;
-        if (i.category === "maintenance" && !entry.lastServiced) {
+        // Resolved through the category rather than matched on the literal
+        // string: categories are studio-authored as of Sep 2026, and a
+        // hard-coded "cleaning" would silently empty this row the first time
+        // a manager renamed it. See upkeepRoleOf in types.ts.
+        const role = upkeepRoleOf(i.category, studioCategories);
+        if (role === "cleaning" && !entry.lastCleaned) entry.lastCleaned = i;
+        if (role === "maintenance" && !entry.lastServiced) {
           entry.lastServiced = i;
         }
       }
     }
     return map;
-  }, [instances]);
+  }, [instances, studioCategories]);
 
   return { byMachineId, loading };
 }

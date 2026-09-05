@@ -56,18 +56,95 @@ export const SHIFT_LABEL: Record<TaskShift, string> = {
 
 export type TaskKind = "machine" | "facility" | "client";
 
-export type TaskCategory =
-  | "cleaning"
-  | "maintenance"
-  | "ops"
-  | "client-service";
+/**
+ * A category id. FREE-FORM as of Sep 2026 — the four below are seeds, not a
+ * whitelist.
+ *
+ * Studios do not agree on what their work is called. One manager thinks in
+ * "front desk" and "outreach", another in "opening" and "closing", and a
+ * closed union means every one of them files a request to add a word. So a
+ * studio authors its own categories in studios/{id}/taskCategories, and this
+ * type is a string.
+ *
+ * THE CATCH, WHICH IS THE REASON upkeepRole EXISTS
+ * ------------------------------------------------
+ * useMachineUpkeep answers "when was this machine last cleaned / serviced" by
+ * matching category === "cleaning" | "maintenance". Opening the union without
+ * anything else would mean the first manager who renames Cleaning to
+ * "Wipe-down" silently empties the Last cleaned row on every machine in the
+ * Catalog — a bug that would take a long time to trace back to a settings
+ * screen. A studio category therefore declares which upkeep question it
+ * answers, and the four built-in ids keep mapping to themselves.
+ */
+export type TaskCategory = string;
 
-export const CATEGORY_LABEL: Record<TaskCategory, string> = {
+/** The upkeep question a category answers, if any. */
+export type UpkeepRole = "cleaning" | "maintenance";
+
+/** studios/{studioId}/taskCategories/{categoryId} */
+export interface StudioTaskCategory {
+  id: string;
+  label: string;
+  /** A brand palette token name, not a raw hex. */
+  color?: string;
+  order?: number;
+  /** Makes a renamed category still feed the Catalog's upkeep rows. */
+  upkeepRole?: UpkeepRole;
+  createdAt?: unknown;
+  createdBy?: string;
+}
+
+/** Seeded into every studio; a studio may add to these or ignore them. */
+export const BUILT_IN_CATEGORIES: StudioTaskCategory[] = [
+  { id: "cleaning", label: "Cleaning", upkeepRole: "cleaning", order: 0 },
+  { id: "maintenance", label: "Maintenance", upkeepRole: "maintenance", order: 1 },
+  { id: "ops", label: "Operations", order: 2 },
+  { id: "client-service", label: "Client service", order: 3 },
+];
+
+export const CATEGORY_LABEL: Record<string, string> = {
   cleaning: "Cleaning",
   maintenance: "Maintenance",
   ops: "Operations",
   "client-service": "Client service",
 };
+
+/**
+ * Display label for any category id, built-in or studio-authored.
+ *
+ * Falls back to a title-cased id rather than to "Unknown": a category whose
+ * document was deleted still has instances referencing it, and "Front Desk"
+ * read off the id is far more useful on a completed task than a blank.
+ */
+export function categoryLabel(
+  id: string,
+  studioCategories?: StudioTaskCategory[],
+): string {
+  const authored = studioCategories?.find((c) => c.id === id);
+  if (authored?.label) return authored.label;
+  if (CATEGORY_LABEL[id]) return CATEGORY_LABEL[id];
+  return id
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+/**
+ * Which upkeep question a category answers.
+ *
+ * The built-in ids answer for themselves so studios that never touch
+ * categories keep working with no document at all.
+ */
+export function upkeepRoleOf(
+  id: string,
+  studioCategories?: StudioTaskCategory[],
+): UpkeepRole | undefined {
+  const authored = studioCategories?.find((c) => c.id === id);
+  if (authored) return authored.upkeepRole;
+  if (id === "cleaning" || id === "maintenance") return id;
+  return undefined;
+}
 
 export type RecurrenceType = "daily" | "weekly" | "monthly" | "once";
 
@@ -197,6 +274,18 @@ export interface TaskTemplate {
   /** Suggested owner. Never enforced — anyone on the floor can close a task. */
   assigneeTrainerId?: string;
 
+  /**
+   * Tell whoever created this task when someone finishes it. In-app only.
+   *
+   * Defaults FALSE for recurring templates and true for one-offs, and that
+   * default is the whole feature. A studio with 40 daily cleaning tasks would
+   * bury its manager in receipts by lunchtime and they would stop reading the
+   * bell entirely — which costs you the notifications that actually matter.
+   * Recurring trash duty needs no receipt; "restock the InBody paper before
+   * Thursday" does.
+   */
+  notifyCreatorOnComplete?: boolean;
+
   order?: number;
   active: boolean;
 
@@ -231,6 +320,27 @@ export interface TaskInstance {
   note?: string;
   /** Maintenance only: closed with a problem, which flags the machine. */
   flagged?: boolean;
+
+  /**
+   * Soft claim: "someone is on this". ADVISORY, never a lock — anyone can
+   * still complete a task another trainer has claimed.
+   *
+   * The alternative was tempting and wrong. A hard claim means a trainer
+   * claims the trash at 9am, gets pulled into a consultation, and the bin
+   * stays full because the app told everyone else it was handled. A claim
+   * answers a coordination question, not a permissions one, so the UI shows
+   * who has it and leaves the tick box live.
+   *
+   * Claiming writes the instance document, which looks like it breaks the
+   * "nothing is written until someone acts" rule in mutations.ts. It does
+   * not: claiming IS acting. The deterministic id still makes it safe when
+   * two trainers claim in the same second — one document, last write wins.
+   *
+   * Claims need no expiry. An instance is already per-localDate, so
+   * tomorrow's row is a different document and starts unclaimed.
+   */
+  claimedBy?: { id: string; name: string } | null;
+  claimedAt?: unknown;
 
   completedAt?: unknown;
   completedBy?: { id: string; name: string } | null;

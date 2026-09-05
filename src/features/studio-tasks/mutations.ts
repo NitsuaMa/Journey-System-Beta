@@ -41,6 +41,7 @@ import {
 import { db } from "../../firebase";
 import type {
   PlannedInstance,
+  StudioTaskCategory,
   TaskInstance,
   TaskLocation,
   TaskStatus,
@@ -89,6 +90,11 @@ export function instanceDocRef(loc: TaskLocation, instanceId: string) {
 /** Convenience for the many call sites that only ever mean a studio task. */
 export function studioLocation(studioId: string): TaskLocation {
   return { scope: "studio", studioId };
+}
+
+/** studios/{studioId}/taskCategories — a studio's own labels for its work. */
+export function categoriesRef(studioId: string) {
+  return collection(db, "studios", studioId, "taskCategories");
 }
 
 /**
@@ -195,6 +201,106 @@ export async function setManyTaskStatuses(params: {
     written += chunk.length;
   }
   return written;
+}
+
+/**
+ * Claim a task, or hand it back.
+ *
+ * Writes the instance document on first claim, exactly as a status change
+ * does — see the note on TaskInstance.claimedBy for why claiming counts as
+ * acting, and why the claim is advisory rather than a lock.
+ *
+ * Deliberately does NOT touch `status`. A claimed task is still open; the two
+ * are separate axes, and collapsing them would make "claimed" unfinishable by
+ * anyone but the claimer, which is the failure this design exists to avoid.
+ */
+export async function setTaskClaim(params: {
+  location: TaskLocation;
+  planned: PlannedInstance;
+  author: TaskAuthor | null;
+  claimed: boolean;
+}): Promise<void> {
+  const { location, planned, author, claimed } = params;
+  if (!location.studioId) {
+    throw new Error("No active studio — cannot claim a task.");
+  }
+  if (claimed && !author) {
+    throw new Error("Cannot claim a task without a signed-in trainer.");
+  }
+
+  await setDoc(
+    instanceDocRef(location, planned.id),
+    {
+      studioId: location.studioId,
+      scope: location.scope,
+      ...(location.scope === "personal" ? { ownerId: location.ownerId } : {}),
+      templateId: planned.templateId,
+      localDate: planned.localDate,
+      shift: planned.shift,
+      ...(planned.machineId ? { machineId: planned.machineId } : {}),
+
+      // Written so a claimed-but-never-completed row still renders from its
+      // own document if the template is later renamed or retired.
+      title: planned.title,
+      category: planned.category,
+      kind: planned.kind,
+
+      claimedBy: claimed ? author : null,
+      claimedAt: claimed ? serverTimestamp() : null,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
+// ── CATEGORIES (studio-authored) ─────────────────────────────────────────
+
+export async function saveStudioCategory(params: {
+  studioId: string;
+  category: StudioTaskCategory;
+  author: TaskAuthor | null;
+  isNew: boolean;
+}): Promise<void> {
+  const { studioId, category, author, isNew } = params;
+  if (!studioId) throw new Error("No active studio.");
+  if (!category.label.trim()) throw new Error("A category needs a name.");
+
+  const { id, ...rest } = category;
+  await setDoc(
+    doc(db, "studios", studioId, "taskCategories", id),
+    {
+      ...rest,
+      label: category.label.trim(),
+      ...(isNew
+        ? { createdAt: serverTimestamp(), createdBy: author?.id ?? null }
+        : {}),
+    },
+    { merge: true },
+  );
+}
+
+/**
+ * Retire a category.
+ *
+ * Hard delete, unlike a template: instances denormalize their category id and
+ * categoryLabel() title-cases an unknown id rather than showing a blank, so a
+ * deleted category leaves history readable. There is nothing to preserve.
+ */
+export async function deleteStudioCategory(
+  studioId: string,
+  categoryId: string,
+): Promise<void> {
+  await deleteDoc(doc(db, "studios", studioId, "taskCategories", categoryId));
+}
+
+/** Ids are readable so a completed instance reads correctly without a join. */
+export function newCategoryId(label: string): string {
+  const slug = label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 24);
+  return slug || `cat-${Math.random().toString(36).slice(2, 7)}`;
 }
 
 // ── TEMPLATES (manager) ──────────────────────────────────────────────────
