@@ -19,7 +19,9 @@ export {
   upkeepRoleOf,
 } from "./types";
 export { MachineUpkeepCard } from "./MachineUpkeepCard";
-export { notifyTaskCompletion } from "./notify";
+export { notifyTaskCompletion, shouldNotifyOnComplete } from "./notify";
+export { ManagePanel } from "./ManagePanel";
+export { useTaskCompliance } from "./useTaskCompliance";
 export { useStudioRequests, useRequestReplies } from "./useStudioRequests";
 export {
   createRequest,

@@ -21,6 +21,8 @@ import { TaskManager } from "./TaskManager";
 import { TaskNoteDialog } from "./TaskNoteDialog";
 import { useStudioTasks } from "./useStudioTasks";
 import { RequestsLane } from "./RequestsLane";
+import { ManagePanel } from "./ManagePanel";
+import { useStudioTaskCategories } from "./useStudioTaskCategories";
 import { notifyTaskCompletion } from "./notify";
 import {
   SHIFT_LABEL,
@@ -124,12 +126,20 @@ export function StudioTasksView({
   const [noteRow, setNoteRow] = useState<TaskRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [managing, setManaging] = useState(false);
+  /**
+   * Board is the default for everyone. Manage is where a studio manager who
+   * never sets foot on the floor lives — same documents, different question.
+   * See ManagePanel.
+   */
+  const [mode, setMode] = useState<"board" | "manage">("board");
 
   // Authoring the list sets the standard the floor is held to. Completing a
   // task is not gated — any trainer closes one, which is the whole screen.
   const canManage = hasPermission("manage_studio_tasks", {
     studioId: activeStudioId ?? undefined,
   });
+
+  const { categories } = useStudioTaskCategories(activeStudioId);
 
   const author = authTrainer?.id
     ? { id: authTrainer.id, name: authTrainer.fullName ?? "" }
@@ -322,6 +332,32 @@ export function StudioTasksView({
             </div>
           )}
 
+          {/* Only leaders see the toggle: a trainer has no use for a
+              seven-day compliance grid, and adding a control that shows them
+              one would be the same mistake this whole round is undoing. */}
+          {canManage && (
+            <div
+              className="st__viewtoggle"
+              role="group"
+              aria-label="Board or manage"
+            >
+              <button
+                type="button"
+                aria-pressed={mode === "board"}
+                onClick={() => setMode("board")}
+              >
+                Board
+              </button>
+              <button
+                type="button"
+                aria-pressed={mode === "manage"}
+                onClick={() => setMode("manage")}
+              >
+                Manage
+              </button>
+            </div>
+          )}
+
           {/* Open to everyone now: a manager authors the studio list here, and
               a trainer authors their own. What each may create is decided
               inside the dialog, not by hiding the button. */}
@@ -372,6 +408,15 @@ export function StudioTasksView({
             in a way that "take out the trash" is not, and interleaving the two
             by timestamp is exactly how "can anyone take my 5pm?" gets missed
             and how staff go back to texting each other. */}
+        {mode === "manage" ? (
+          <ManagePanel
+            studioId={activeStudioId}
+            templates={templates}
+            categories={categories}
+            flaggedRows={flaggedRows}
+          />
+        ) : (
+          <>
         <RequestsLane
           studioId={activeStudioId}
           author={author}
@@ -665,6 +710,8 @@ export function StudioTasksView({
               </>
             )}
           </div>
+        )}
+          </>
         )}
       </div>
 
