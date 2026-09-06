@@ -1,26 +1,13 @@
-import admin from 'firebase-admin';
-import fs from 'fs';
-import path from 'path';
-
-// Load config for database ID and project ID
-const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-
-// Initialize Admin SDK if not already initialized
-if (admin.apps.length === 0) {
-  admin.initializeApp({
-    projectId: config.projectId
-  });
-}
-
-import { getFirestore } from 'firebase-admin/firestore';
-
-// Note: If using multiple databases, we need to ensure we use the correct one.
-// The config.firestoreDatabaseId is handled here by reconnecting if needed, 
-// but usually admin.firestore() is sufficient for the default db.
-const getDb = () => {
-    return getFirestore(admin.app(), config.firestoreDatabaseId);
-};
+/**
+ * Nightly leaderboard materialisation. Runs as a Render Cron Job via
+ * server/cron-leaderboards.ts.
+ *
+ * Credentials and the named-database handle now come from ./firebase-admin.ts.
+ * This file used to call admin.initializeApp({ projectId }) with no credential
+ * at all, which works on a machine with Application Default Credentials and
+ * nowhere else — on Render it would have thrown on the first read.
+ */
+import { getDb } from './firebase-admin.ts';
 
 export async function calculateLeaderboards() {
   const cronId = Math.random().toString(36).substring(7);
@@ -139,6 +126,19 @@ export async function calculateLeaderboards() {
     // 5. Save Materialized View
     const lastUpdated = new Date().toISOString();
     
+    // A Firestore document is capped at 1 MiB. machineData holds a
+    // clientPlacements entry per machine per active client, so this grows with
+    // the client base and will one day cross the limit at 3am with nothing but
+    // an INVALID_ARGUMENT to show for it. Warn while there is still room.
+    const globalPayload = { lastUpdated, scope: 'global', machineData };
+    const approxBytes = Buffer.byteLength(JSON.stringify(globalPayload), 'utf8');
+    if (approxBytes > 800_000) {
+      console.warn(
+        `[LeaderboardCron-${cronId}] leaderboards/global is ~${Math.round(approxBytes / 1024)} kB. ` +
+          'Firestore rejects documents over 1 MiB - shard by machine before this stops working.',
+      );
+    }
+
     // Global Leaderboard
     await database.collection('leaderboards').doc('global').set({
       lastUpdated,
