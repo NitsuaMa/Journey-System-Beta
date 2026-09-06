@@ -30,6 +30,14 @@ interface Props {
   onSelectClient: (clientId: string) => void;
   onStartOpenSession?: () => void;
   authTrainer?: Trainer | null;
+  /**
+   * Client ids on the signed-in trainer's Kaizen Roster.
+   *
+   * Passed in rather than read here: `authTrainer` is captured at sign-in and
+   * never re-read, so a roster edit made this session would not show up. The
+   * caller derives this from the live `trainers` snapshot.
+   */
+  kaizenClientIds?: Set<string>;
   onUpdateSessions?: (
     clientId: string,
     current: number,
@@ -122,12 +130,14 @@ export function ClientDirectoryView({
   onSelectClient,
   onStartOpenSession,
   authTrainer,
+  kaizenClientIds,
   onUpdateSessions,
   onStartNewClientOnboarding,
 }: Props) {
   const { availableStudios, activeStudioId } = useActiveStudio();
   const [searchTerm, setSearchTerm] = useState("");
   const [isGlobalSearch, setIsGlobalSearch] = useState(false);
+  const [rosterOnly, setRosterOnly] = useState(false);
   const [dbSearchResults, setDbSearchResults] = useState<Client[]>([]);
   const [isSearchingDb, setIsSearchingDb] = useState(false);
 
@@ -279,6 +289,12 @@ export function ClientDirectoryView({
       );
     }
 
+    // 1b. Kaizen Roster. Applied before search so "roster only" plus a name
+    // search narrows within the roster rather than escaping it.
+    if (rosterOnly && kaizenClientIds) {
+      filtered = filtered.filter((c) => c.id && kaizenClientIds.has(c.id));
+    }
+
     // 2. Search filtering
     if (searchTerm.trim()) {
       const terms = searchTerm.trim().toLowerCase().split(/\s+/);
@@ -307,6 +323,8 @@ export function ClientDirectoryView({
     clients,
     searchTerm,
     isGlobalSearch,
+    rosterOnly,
+    kaizenClientIds,
     activeStudioId,
     authTrainer,
     dbSearchResults,
@@ -433,6 +451,23 @@ export function ClientDirectoryView({
             </span>
           </div>
         )}
+
+        {kaizenClientIds && kaizenClientIds.size > 0 && (
+          <div className="flex items-center gap-3 mt-3 px-2">
+            <button
+              onClick={() => setRosterOnly(!rosterOnly)}
+              aria-pressed={rosterOnly}
+              className={`w-10 h-5 rounded-full transition-colors relative ${rosterOnly ? "bg-[#0a548b] dark:bg-[#4a9fd8]" : "bg-muted border border-border"}`}
+            >
+              <div
+                className={`w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 transition-transform ${rosterOnly ? "left-5.5" : "left-0.75"}`}
+              />
+            </button>
+            <span className="text-xs font-bold text-muted-foreground tracking-widest uppercase">
+              My Kaizen Roster ({kaizenClientIds.size})
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="max-w-7xl mx-auto w-full flex-1 overflow-y-auto custom-scrollbar pr-2 pb-24 bg-card rounded-2xl border border-border shadow-sm">
@@ -470,8 +505,30 @@ export function ClientDirectoryView({
                             </span>
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
+                            <span className="text-sm font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
                               {client.firstName} {client.lastName}
+                              {/* Kaizen Roster mark. Slate, never crimson --
+                                  the red kaizen mark means "this rep needs
+                                  work" in the session grid, and a client row
+                                  must never blur the two. */}
+                              {client.id && kaizenClientIds?.has(client.id) && (
+                                <svg
+                                  width="13"
+                                  height="13"
+                                  viewBox="0 0 16 16"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth={2.2}
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className="text-[#5b6770] dark:text-[#8b98a4] shrink-0"
+                                  role="img"
+                                  aria-label="On your Kaizen Roster"
+                                >
+                                  <polyline points="2,10 6,6 10,10" opacity={0.55} />
+                                  <polyline points="6,13 10,9 14,13" />
+                                </svg>
+                              )}
                             </span>
                             {isCrossTrainer ? (
                               <span className="text-[10px] font-bold text-primary uppercase tracking-widest flex items-center gap-1 mt-0.5">

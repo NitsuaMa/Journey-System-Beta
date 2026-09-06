@@ -18,6 +18,7 @@ import { TodaySchedule } from "./TodaySchedule";
 import { RecentlyCoached } from "./RecentlyCoached";
 import { upcomingFor } from "./adapters";
 import { CoachingLoad } from "./CoachingLoad";
+import { KaizenRoster } from "./KaizenRoster";
 import { deriveTrainerStats } from "./stats";
 import { useRecentlyCoached } from "./useRecentlyCoached";
 import { resolveProfileVisibility, scopeNotice } from "./visibility";
@@ -131,6 +132,21 @@ export function TrainerProfileView({
         <AboutPanel trainer={trainer} visibility={visibility} />
         <StudioAccessPanel trainer={trainer} studios={studios} />
       </div>
+
+      {/* Above the schedule on purpose: the schedule answers "what is next",
+          the roster answers "who am I actually working on", and the second is
+          the question a profile page exists for. Only the owner can curate it
+          -- leadership can change someone's role and studio access without
+          editing who they watch, which firestore.rules enforces too. */}
+      {visibility.showRoster && (
+        <KaizenRoster
+          trainer={trainer}
+          clients={clients}
+          schedules={schedules}
+          canEdit={visibility.scope === "self"}
+          onSelectClient={openClient}
+        />
+      )}
 
       {(visibility.showSchedule || visibility.showRecentlyCoached) && (
         <div className="tp-band tp-band--even">

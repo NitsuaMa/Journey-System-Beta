@@ -635,6 +635,19 @@ export default function AppContent({
     isDataReady,
   );
   const { sessions } = useSessions(activeStudioId, isDataReady);
+
+  /**
+   * The signed-in trainer's Kaizen Roster, as a set of client ids.
+   *
+   * Derived from the streamed `trainers` documents rather than from
+   * `authTrainer`, which is captured at sign-in and never re-read. Costs
+   * nothing extra: the roster rides on a document the app already subscribes
+   * to, which is exactly why it is stored there.
+   */
+  const kaizenClientIds = useMemo(() => {
+    const mine = trainers.find((t) => t.id === authTrainer?.id);
+    return new Set((mine?.kaizenRoster ?? []).map((e) => e.clientId));
+  }, [trainers, authTrainer?.id]);
   const { announcements } = useHubAnnouncements(authTrainer, activeStudioId);
   const [trainerFocuses, setTrainerFocuses] = useState<TrainerFocus[]>([]);
 
@@ -1795,6 +1808,7 @@ export default function AppContent({
                 }}
                 onStartOpenSession={startUnassignedSession}
                 authTrainer={authTrainer}
+                kaizenClientIds={kaizenClientIds}
                 onUpdateSessions={updateClientSessions}
                 onStartNewClientOnboarding={setNewClientOnboardingName}
               />
@@ -1975,9 +1989,13 @@ export default function AppContent({
                 : authTrainer) && (
                 <TrainerProfileView
                   trainer={
-                    (selectedProfileTrainerId
-                      ? trainers.find((t) => t.id === selectedProfileTrainerId)
-                      : authTrainer)!
+                    // Always the LIVE document: `authTrainer` is captured at
+                    // sign-in and never re-read, so viewing your own profile
+                    // through it would never see your own Kaizen Roster edits
+                    // or the session counters the Cloud Function maintains.
+                    (trainers.find(
+                      (t) => t.id === (selectedProfileTrainerId || authTrainer?.id),
+                    ) || authTrainer)!
                   }
                   schedules={schedules}
                   sessions={sessions}

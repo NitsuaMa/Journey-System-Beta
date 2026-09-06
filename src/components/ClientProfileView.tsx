@@ -168,6 +168,7 @@ import {
   resolvePackage,
   useTopTrainer,
 } from "../features/client-profile";
+import { isOnRoster, useKaizenRoster } from "../features/trainer-profile";
 
 
 /** Sessions per Firestore page for the profile's history (see the Journey tab). */
@@ -218,6 +219,24 @@ export function ClientProfileView({
   const [trainerFocuses, setTrainerFocuses] = useState<TrainerFocus[]>([]);
   const [progressReports, setProgressReports] = useState<ProgressReport[]>([]);
   const [showMockConfirm, setShowMockConfirm] = useState(false);
+
+  /*
+   * KAIZEN ROSTER.
+   *
+   * `authTrainer` is captured at sign-in and never re-read, so it does not
+   * see our own write. The roster lives on the trainer document that
+   * `useTrainers` streams, so resolving against `trainers` is what makes the
+   * toggle flip the moment Firestore acknowledges the change.
+   */
+  const liveAuthTrainer = useMemo(
+    () => trainers.find((t) => t.id === authTrainer?.id) ?? authTrainer ?? null,
+    [trainers, authTrainer],
+  );
+  const {
+    add: addToKaizen,
+    remove: removeFromKaizen,
+    saving: kaizenSaving,
+  } = useKaizenRoster(liveAuthTrainer);
 
   const performReportDelete = async () => {
     if (!reportToDelete?.id) return;
@@ -1742,6 +1761,25 @@ export function ClientProfileView({
         pkg={clientPackage}
         activeInProgressSession={activeInProgressSession}
         isCheckingActiveSession={isCheckingActiveSession}
+        kaizen={
+          liveAuthTrainer && client.id
+            ? {
+                isOn: isOnRoster(liveAuthTrainer, client.id),
+                busy: kaizenSaving,
+                onToggle: () => {
+                  if (!client.id) return;
+                  if (isOnRoster(liveAuthTrainer, client.id)) {
+                    void removeFromKaizen(client.id);
+                  } else {
+                    // Straight onto the roster with the default reason. A
+                    // trainer mid-conversation with a client should not have
+                    // to answer a form; the reason is editable on the profile.
+                    void addToKaizen(client, "Progression");
+                  }
+                },
+              }
+            : undefined
+        }
         onBack={() => {
           setSelectedClientId(null);
           setView("client-directory");
