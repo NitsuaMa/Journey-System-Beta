@@ -111,6 +111,7 @@ import {
 } from "../lib/log-validation";
 import { ActiveSessionTimer } from "./ActiveSessionTimer";
 import { SessionRoutineManagerModal } from "./SessionRoutineManagerModal";
+import { MachineSheet } from "../features/equipment/MachineSheet";
 import { SessionJournalSidebar } from "./journal/SessionJournalSidebar";
 import { BriefingScreen } from "./BriefingScreen";
 import { VictoryHUDScreen } from "./VictoryHUDScreen";
@@ -194,113 +195,6 @@ function ClientSelectionDialog({
   );
 }
 
-function MachineSettingsDialog({
-  machine,
-  client,
-  currentSettings,
-  onClose,
-  onSave,
-}: {
-  machine: Machine;
-  client: Client;
-  currentSettings?: ClientMachineSetting;
-  onClose: () => void;
-  onSave: (settings: Record<string, string>, reason: string) => void;
-}) {
-  const [settings, setSettings] = useState<Record<string, string>>(
-    currentSettings?.settings || {},
-  );
-  const [reason, setReason] = useState("");
-
-  return (
-    <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-100 rounded-3xl">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-black">
-            Machine Settings
-          </DialogTitle>
-          <DialogDescription>
-            Configure {machine.name} for {client.firstName} ({client.height},{" "}
-            {client.gender}).
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-6 py-4">
-          {machine.settings && (
-            <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4">
-              <p className="text-[11px] font-black uppercase tracking-widest text-primary mb-2">
-                Standard Benchmarks (Reference)
-              </p>
-              <p className="text-xs font-bold italic leading-relaxed text-primary/80">
-                {machine.settings}
-              </p>
-            </div>
-          )}
-          <div className="space-y-4">
-            {machine.settingOptions?.map((option) => (
-              <div key={option} className="space-y-2">
-                <div className="flex justify-between items-center pr-1">
-                  <Label className="text-sm font-bold">{option}</Label>
-                  {machine.standardSettings?.[option] && (
-                    <span
-                      className="text-xs font-semibold text-slate-500 dark:text-slate-400"
-                      title="Standard Setting"
-                    >
-                      STD: {machine.standardSettings[option]}
-                    </span>
-                  )}
-                </div>
-                <Input
-                  placeholder={
-                    machine.standardSettings?.[option] ||
-                    `Enter ${option} setting`
-                  }
-                  value={settings[option] || ""}
-                  onChange={(e) =>
-                    setSettings({ ...settings, [option]: e.target.value })
-                  }
-                  className="h-12 rounded-xl font-bold"
-                />
-              </div>
-            ))}
-            {(!machine.settingOptions ||
-              machine.settingOptions.length === 0) && (
-              <div className="space-y-2">
-                <Label className="text-sm font-bold">General Setting</Label>
-                <Input
-                  placeholder="Enter setting"
-                  value={settings["General"] || ""}
-                  onChange={(e) =>
-                    setSettings({ ...settings, ["General"]: e.target.value })
-                  }
-                  className="h-12 rounded-xl font-bold"
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-sm font-bold">
-              Reason for Change (Optional)
-            </Label>
-            <Textarea
-              placeholder="e.g. Better alignment, client discomfort..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="rounded-xl min-h-20"
-            />
-          </div>
-
-          <Button
-            className="h-14 rounded-2xl font-black text-lg shadow-lg bg-action text-action-foreground hover:bg-action/90 shadow-action/20"
-            onClick={() => onSave(settings, reason)}
-          >
-            Save Settings
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function PerformanceEntryDialog({
   machine,
@@ -1109,9 +1003,10 @@ export function WorkoutTrackerView({
   const currentSegmentPauseDuration = React.useRef<number>(0);
   const [isEditingRoutine, setIsEditingRoutine] = useState(false);
   const [showRoutinePicker, setShowRoutinePicker] = useState(false);
-  const [editingSettingsMachineId, setEditingSettingsMachineId] = useState<
-    string | null
-  >(null);
+  // Which machine the unified sheet is open on. One piece of state, because
+  // there is now one sheet: it used to be two (settings, notes) and a
+  // trainer had to know which of two targets to hit.
+  const [sheetMachineId, setSheetMachineId] = useState<string | null>(null);
   const [editingWeightMachineId, setEditingWeightMachineId] = useState<
     string | null
   >(null);
@@ -1153,17 +1048,6 @@ export function WorkoutTrackerView({
   }, [editingWeightMachineId, clientMachineSettings, logs]);
   const [isStaticHoldOverride, setIsStaticHoldOverride] = useState(false);
   const [historyMachineId, setHistoryMachineId] = useState<string | null>(null);
-  // Machine-specific notes (Active Session "Notes" column) — a persistent,
-  // per-client-per-machine log stored on the same clientMachineSettings doc
-  // the Journey grid and Equipment Prescriptions already read/write
-  // (machineNotes: MachineNote[]), so a note left here shows up everywhere
-  // else in the app that surfaces that same data, and vice versa.
-  const [notesDialogMachineId, setNotesDialogMachineId] = useState<
-    string | null
-  >(null);
-  const [newMachineNoteText, setNewMachineNoteText] = useState("");
-  const [isImportantMachineNote, setIsImportantMachineNote] = useState(false);
-  const [isSavingMachineNote, setIsSavingMachineNote] = useState(false);
   // Quick-add confirmation — clicking the small dot next to a machine that
   // isn't part of today's routine (while a session is already running)
   // prompts before adding it, rather than toggling it in silently.
@@ -2471,116 +2355,6 @@ export function WorkoutTrackerView({
     });
   };
 
-  const addMachineNote = async (machineId: string) => {
-    if (!clientId || !authTrainer || !newMachineNoteText.trim()) return;
-    setIsSavingMachineNote(true);
-    try {
-      const docRef = doc(db, "clientMachineSettings", `${clientId}_${machineId}`);
-      const existingNotes = clientMachineSettings[machineId]?.machineNotes || [];
-      const note = {
-        id: Date.now().toString(),
-        content: newMachineNoteText.trim(),
-        authorId: authTrainer.id || "unknown",
-        authorName: authTrainer.fullName || authTrainer.initials || "Trainer",
-        timestamp: new Date().toISOString(),
-        isImportant: isImportantMachineNote,
-      };
-      await setDoc(
-        docRef,
-        {
-          clientId,
-          machineId,
-          machineNotes: [...existingNotes, note],
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
-      setNewMachineNoteText("");
-      setIsImportantMachineNote(false);
-      toastSuccess("Note saved.");
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, "clientMachineSettings");
-    } finally {
-      setIsSavingMachineNote(false);
-    }
-  };
-
-  const deleteMachineNote = async (machineId: string, noteId: string) => {
-    if (!clientId) return;
-    setIsSavingMachineNote(true);
-    try {
-      const docRef = doc(db, "clientMachineSettings", `${clientId}_${machineId}`);
-      const existingNotes = clientMachineSettings[machineId]?.machineNotes || [];
-      const filtered = existingNotes.filter((n) => n.id !== noteId);
-      await setDoc(
-        docRef,
-        { machineNotes: filtered, updatedAt: serverTimestamp() },
-        { merge: true },
-      );
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, "clientMachineSettings");
-    } finally {
-      setIsSavingMachineNote(false);
-    }
-  };
-
-  const saveMachineSettings = async (
-    machineId: string,
-    newSettings: Record<string, string>,
-    reason: string,
-  ) => {
-    if (!clientId || !user) return;
-    const current = clientMachineSettings[machineId];
-    const trainerId = user.uid;
-
-    try {
-      // Use deterministic ID to prevent duplicates (same as importer)
-      const deterministicId = `${clientId}_${machineId}`;
-      const settingsRef = doc(db, "clientMachineSettings", deterministicId);
-
-      await setDoc(
-        settingsRef,
-        {
-          clientId,
-          machineId,
-          settings: newSettings,
-          updatedBy: trainerId,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
-
-      // Record Change Audit
-      await addDoc(collection(db, "machineSettingChanges"), {
-        machineId,
-        clientId,
-        trainerId,
-        previousSettings: current?.settings || {},
-        newSettings,
-        reason,
-        createdAt: serverTimestamp(),
-        studioId: selectedClient?.homeStudioId || "",
-      });
-
-      // Save historic record in sidecar subcollection to keep documents optimized
-      await addDoc(collection(db, "machines", machineId, "settingHistory"), {
-        clientId,
-        timestamp: new Date().toISOString(),
-        trainerId,
-        trainerName:
-          authTrainer?.fullName || authTrainer?.initials || "Trainer",
-        changeType: "SETTINGS",
-        previousSettings: current?.settings || {},
-        newSettings,
-        reason: reason || "Settings Update",
-      });
-
-      setEditingSettingsMachineId(null);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, "clientMachineSettings");
-    }
-  };
-
   const toggleMachine = async (machineId: string) => {
     if (currentSession) return; // Disable during active session
 
@@ -3351,143 +3125,50 @@ export function WorkoutTrackerView({
         />
       )}
 
-      {/* Machine Settings Dialog */}
-      {editingSettingsMachineId && (
-        <MachineSettingsDialog
-          machine={machines.find((m) => m.id === editingSettingsMachineId)!}
-          client={selectedClient}
-          currentSettings={clientMachineSettings[editingSettingsMachineId]}
-          onClose={() => setEditingSettingsMachineId(null)}
-          onSave={(settings, reason) =>
-            saveMachineSettings(editingSettingsMachineId, settings, reason)
-          }
-        />
-      )}
+      {/* THE MACHINE SHEET. One target, one sheet.
 
-      {/* Machine Notes Dialog — same clientMachineSettings.machineNotes
-          data the Journey grid's red-alert icon and Equipment
-          Prescriptions' note log already read/write, so a note left here
-          shows up there too. */}
-      {notesDialogMachineId &&
-        (() => {
-          const noteMachine = machines.find(
-            (m) => m.id === notesDialogMachineId,
-          );
-          const machineNotesList =
-            clientMachineSettings[notesDialogMachineId]?.machineNotes || [];
-          return (
-            <Dialog
-              open={!!notesDialogMachineId}
-              onOpenChange={(v) => {
-                if (!v) {
-                  setNotesDialogMachineId(null);
-                  setNewMachineNoteText("");
-                  setIsImportantMachineNote(false);
-                }
-              }}
-            >
-              <DialogContent className="max-w-md rounded-[32px] p-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-                <DialogHeader className="mb-4">
-                  <DialogTitle className="text-xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">
-                    Machine Notes
-                  </DialogTitle>
-                  <DialogDescription className="text-xs font-bold uppercase tracking-widest text-[#F06C22]">
-                    {noteMachine?.name || "Machine"} — {selectedClient?.firstName}{" "}
-                    {selectedClient?.lastName}
-                  </DialogDescription>
-                </DialogHeader>
+          It replaces two modals that used to sit here: a "Machine Settings"
+          dialog opened by tapping a machine, and a "Machine Notes" dialog
+          opened by a small separate icon on the same row. Two near-identical
+          targets, and a trainer standing at a machine with a client waiting
+          had to know which one held the thing they wanted. A wrong guess
+          cost two taps, so the honest outcome was that notes did not get
+          written.
 
-                <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
-                  {machineNotesList.length === 0 ? (
-                    <div className="text-center py-8 text-xs font-bold text-slate-400 uppercase tracking-widest border border-dashed rounded-2xl dark:border-slate-800">
-                      No notes recorded
-                    </div>
-                  ) : (
-                    [...machineNotesList]
-                      .sort(
-                        (a, b) =>
-                          new Date(b.timestamp).getTime() -
-                          new Date(a.timestamp).getTime(),
-                      )
-                      .map((note) => (
-                        <div
-                          key={note.id}
-                          className={cn(
-                            "p-3 rounded-2xl border relative group flex flex-col",
-                            note.isImportant
-                              ? "bg-rose-50 dark:bg-rose-950/30 border-rose-100 dark:border-rose-900/50"
-                              : "bg-slate-50 dark:bg-slate-950 border-slate-100 dark:border-slate-800",
-                          )}
-                        >
-                          {note.isImportant && (
-                            <div className="text-[11px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 mb-1 flex items-center gap-1">
-                              <TriangleAlert className="w-3 h-3" /> High
-                              Importance
-                            </div>
-                          )}
-                          <p className="text-xs text-slate-700 dark:text-slate-300 pr-8">
-                            {note.content}
-                          </p>
-                          <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mt-2">
-                            {note.authorName} •{" "}
-                            {new Date(note.timestamp).toLocaleDateString()}
-                          </p>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            disabled={isSavingMachineNote}
-                            onClick={() =>
-                              deleteMachineNote(notesDialogMachineId, note.id!)
-                            }
-                            className="absolute right-1 top-1 h-6 w-6 text-slate-400 dark:text-slate-500 hover:text-rose-500 hover:bg-white dark:hover:bg-slate-900 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      ))
-                  )}
-                </div>
+          Both entry points now land in the same place -- note the two
+          handlers below the grid both call setSheetMachineId -- and the
+          sheet stacks what it holds in the order the floor needs it:
+          high-importance notes first, then the dials, then the note
+          composer, then reference.
 
-                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <Label
-                      htmlFor={`important-note-${notesDialogMachineId}`}
-                      className="text-xs font-bold text-slate-600 dark:text-slate-400"
-                    >
-                      High Importance
-                    </Label>
-                    <Switch
-                      id={`important-note-${notesDialogMachineId}`}
-                      checked={isImportantMachineNote}
-                      onCheckedChange={(c) => setIsImportantMachineNote(!!c)}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={newMachineNoteText}
-                      onChange={(e) => setNewMachineNoteText(e.target.value)}
-                      placeholder="Note about this machine for this client..."
-                      className="flex-1 bg-slate-50 dark:bg-slate-950 h-10 rounded-xl text-xs dark:border-slate-800"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter")
-                          addMachineNote(notesDialogMachineId);
-                      }}
-                    />
-                    <Button
-                      disabled={
-                        isSavingMachineNote || !newMachineNoteText.trim()
-                      }
-                      onClick={() => addMachineNote(notesDialogMachineId)}
-                      className="h-10 px-4 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 hover:opacity-90 font-bold uppercase tracking-widest text-[11px]"
-                    >
-                      Add
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          );
-        })()}
+          It also fixes where the writes go. The old dialog wrote a third
+          copy of every settings change into a `machineSettingChanges`
+          collection that nothing in this app has ever read back, and its
+          "reason for change" therefore went nowhere a trainer could find
+          it. The sheet calls features/equipment/mutations.ts -- the same
+          functions the Equipment tab calls -- so a change made mid-session
+          is in clientMachineSettings, in the machine's settingHistory WITH
+          its reason, and in the client's Journal, and is already showing on
+          their Equipment tab before the trainer walks back to the desk. */}
+      <MachineSheet
+        open={!!sheetMachineId}
+        machine={machines.find((m) => m.id === sheetMachineId) || null}
+        client={selectedClient}
+        clientId={clientId || ""}
+        clientSettings={clientMachineSettings}
+        author={
+          authTrainer
+            ? {
+                id: authTrainer.id || "unknown",
+                fullName: authTrainer.fullName || authTrainer.initials || "Unknown",
+                initials: authTrainer.initials,
+              }
+            : null
+        }
+        sessionId={currentSession?.id || null}
+        onClose={() => setSheetMachineId(null)}
+        onError={toastError}
+      />
 
       {/* Quick-Add-to-Routine Confirmation — clicking the small dot next to
           a machine not currently in today's routine, mid-session. */}
@@ -3830,10 +3511,13 @@ export function WorkoutTrackerView({
             showStats={false}
             onLoadOlder={() => setGridVisible((v) => v + 5)}
             canLoadOlder={gridVisible < gridHistory.length}
-            onSelectMachine={(id) => {
-              if (id) setEditingSettingsMachineId(id);
-            }}
-            onMachineNote={(id) => setNotesDialogMachineId(id)}
+            /* The machine's NAME is the target -- one big one, the width of
+               the rail, instead of a name that did nothing and two small
+               icons beside it that did different things. The note icon
+               still works; it just opens the same sheet, so a trainer who
+               aims for it is never wrong. */
+            onSelectMachine={(id) => setSheetMachineId(id)}
+            onMachineNote={(id) => setSheetMachineId(id)}
             layout="fill"
             title="Machine"
           />

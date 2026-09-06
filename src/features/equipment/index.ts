@@ -11,6 +11,7 @@ export { SetupGuide } from "./SetupGuide";
 export { MachineNotes } from "./MachineNotes";
 export { ChangeHistory } from "./ChangeHistory";
 export { SetupPromptDialog, type SetupPromptDialogProps } from "./SetupPromptDialog";
+export { MachineSheet, type MachineSheetProps } from "./MachineSheet";
 export * from "./mutations";
 export { useMachineStats, type MachineStatsState } from "./useMachineStats";
 export { MachineUsageCard } from "./MachineUsageCard";

@@ -46,6 +46,14 @@
   --eq-warn:            #a2457e;   /* 5.7:1 on white                        */
   --eq-warn-fill:       #f4e9f0;
 
+  /* High-importance client note. Deliberately the SAME crimson the Journey
+     Grid uses for a set that needs work, so "this is the one that matters"
+     is one colour across both screens instead of two near-reds a trainer
+     has to learn separately. Plum (--eq-warn) was not an option: a note
+     that says "hip pain" must not read as a decorative accent.            */
+  --eq-alert:           #c0203f;   /* 5.9:1 on white, 5.0:1 on its fill     */
+  --eq-alert-fill:      #fce3e8;
+
   --eq-focus-ring:      var(--eq-live);
   --eq-shadow:          rgba(18, 28, 35, 0.10);
   --eq-radius:          14px;
@@ -84,6 +92,9 @@
   --eq-warn:            #d98cbd;
   --eq-warn-fill:       rgba(217, 140, 189, 0.14);
 
+  --eq-alert:           #f2718c;   /* 7.6:1 on surface                      */
+  --eq-alert-fill:      rgba(242, 113, 140, 0.13);
+
   --eq-shadow:          rgba(0, 0, 0, 0.5);
 }
 
@@ -111,6 +122,8 @@
     --eq-ok-fill:         rgba(78, 192, 140, 0.13);
     --eq-warn:            #d98cbd;
     --eq-warn-fill:       rgba(217, 140, 189, 0.14);
+    --eq-alert:           #f2718c;
+    --eq-alert-fill:      rgba(242, 113, 140, 0.13);
     --eq-shadow:          rgba(0, 0, 0, 0.5);
   }
 }
