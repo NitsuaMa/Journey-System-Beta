@@ -6,9 +6,7 @@ import {
   Play,
   Loader2,
   CalendarCheck,
-  CircleCheckBig,
   ListChecks,
-  CalendarPlus,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -91,8 +89,8 @@ const hourLabel = (minutes: number): string => {
 /**
  * One number in the Hub's day strip.
  *
- * Value over label, both left-aligned, tabular figures so the four tiles
- * do not shift width as the day fills up. The accent lives on the number
+ * Value over label, tabular figures so the pair does not shift width as the
+ * day fills up. The accent lives on the number
  * alone; the label stays grey. A trainer scanning this row is reading
  * digits, not chrome.
  */
@@ -113,7 +111,7 @@ function DayStat({
 }) {
   return (
     <div
-      className="flex items-center gap-2 px-2.5 md:px-3 bg-white dark:bg-slate-900"
+      className="flex items-center justify-center gap-2 px-2.5 md:px-3 bg-white dark:bg-slate-900"
       title={title}
     >
       <span className={cn("shrink-0 hidden md:block opacity-70", tone)}>
@@ -588,66 +586,6 @@ export function ClientsView({
   });
   const openTaskCount = Math.max(0, taskCounts.total - taskCounts.done);
 
-  /** Sessions actually logged on the selected day. */
-  const completedCount = React.useMemo(
-    () =>
-      (sessions || []).filter((s) => {
-        if (s.status !== "Completed") return false;
-        const t = parseSessionDate(s.date);
-        return t > 0 && t >= dateStart.getTime() && t <= dateEnd.getTime();
-      }).length,
-    [sessions, dateStart, dateEnd],
-  );
-
-  /**
-   * Slots left to sell. A 30-minute slot counts as open when at least one
-   * visible trainer has nothing in it — the question this answers is "can
-   * you fit me in?", and one free trainer is a yes. Slots already past are
-   * excluded on today; a future day counts from open to close.
-   */
-  const openSlots = React.useMemo(() => {
-    const trainerList = visibleTrainersList;
-    if (trainerList.length === 0) return { open: 0, remaining: 0 };
-    const isToday = calendarLabelKey(selectedDate) === studioDateKey(currentTime);
-    const fromMin = isToday ? studioMinutes(currentTime) : -1;
-
-    // Minutes each trainer is occupied, as [start, end) pairs.
-    const busy = new Map<string, Array<[number, number]>>();
-    todaysSchedules.forEach((s) => {
-      const start = safeToDate(s.startTime || s.StartDateTime || s.date);
-      if (!start) return;
-      const end = safeToDate(s.endTime || s.EndDateTime);
-      const a = studioMinutes(start);
-      const b = end ? studioMinutes(end) : a + SLOT_MINUTES;
-      trainerList.forEach((t) => {
-        if (!isTrainerMatch(s, t)) return;
-        const key = String(t.id);
-        const arr = busy.get(key) || [];
-        arr.push([a, Math.max(b, a + 1)]);
-        busy.set(key, arr);
-      });
-    });
-
-    let open = 0;
-    let remaining = 0;
-    timelineSlots.forEach((slot) => {
-      if (slot + SLOT_MINUTES <= fromMin) return; // already gone
-      remaining += 1;
-      const anyFree = trainerList.some((t) => {
-        const spans = busy.get(String(t.id));
-        if (!spans) return true;
-        return !spans.some(([a, b]) => a < slot + SLOT_MINUTES && b > slot);
-      });
-      if (anyFree) open += 1;
-    });
-    return { open, remaining };
-  }, [
-    visibleTrainersList,
-    todaysSchedules,
-    timelineSlots,
-    selectedDate,
-    currentTime,
-  ]);
 
   return (
     <motion.div
@@ -1029,12 +967,25 @@ export function ClientsView({
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full">
         {!searchTerm ? (
           <div className="flex-1 flex flex-col min-h-0 bg-slate-50 dark:bg-slate-950">
-            {/* Slim strip directly under the header: the day's four numbers +
+            {/* Slim strip directly under the header: the day's two numbers +
                 the seven-day carousel. Both share one row so the timeline
-                keeps every vertical pixel it had. */}
+                keeps every vertical pixel it had.
+
+                Two, not four, as of Sep 6. "Complete" restated a fraction of
+                the Sessions count and read as a second booking figure at a
+                glance, and "Open slots" answered a sales question ("can you
+                fit me in?") on a screen a trainer opens to run their day -
+                the number nobody acted on from here. What is left is the two
+                a trainer is actually accountable for on the floor: how many
+                sessions, how much still to do. */}
             <div className="shrink-0 flex items-center gap-3 md:gap-4 px-3 md:px-4 h-12 border-b border-slate-200 dark:border-slate-800">
               <div
-                className="shrink-0 flex items-stretch gap-px rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-200 dark:bg-slate-800 h-9"
+                // Two tiles, not four (Sep 6). `grid-cols-2` rather than a
+                // flex row: with equal columns the pair keeps a stable,
+                // balanced width whether the numbers are 0 and 0 or 12 and
+                // 137, where auto-sized flex items would jog sideways every
+                // time a session completed.
+                className="shrink-0 grid grid-cols-2 gap-px rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-200 dark:bg-slate-800 h-9 min-w-[13rem] md:min-w-[15rem]"
                 role="group"
                 aria-label={`Day summary for ${selectedDate.toLocaleDateString([], {
                   weekday: "long",
@@ -1050,14 +1001,6 @@ export function ClientsView({
                   title="Sessions booked on this day"
                 />
                 <DayStat
-                  value={completedCount}
-                  label="Complete"
-                  sub={preBookedCount > 0 ? `/ ${preBookedCount}` : undefined}
-                  icon={<CircleCheckBig className="w-3.5 h-3.5" />}
-                  tone="text-emerald-600 dark:text-emerald-400"
-                  title="Sessions logged as completed on this day"
-                />
-                <DayStat
                   value={openTaskCount}
                   label="To-do"
                   icon={<ListChecks className="w-3.5 h-3.5" />}
@@ -1068,21 +1011,9 @@ export function ClientsView({
                   }
                   title="Studio and personal tasks still open for this day"
                 />
-                <DayStat
-                  value={openSlots.open}
-                  label="Open slots"
-                  sub={
-                    openSlots.remaining > 0
-                      ? `/ ${openSlots.remaining}`
-                      : undefined
-                  }
-                  icon={<CalendarPlus className="w-3.5 h-3.5" />}
-                  tone="text-slate-700 dark:text-slate-200"
-                  title="Half-hour slots left with at least one trainer free"
-                />
               </div>
 
-              <span className="hidden xl:block text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 whitespace-nowrap shrink-0">
+              <span className="hidden lg:block text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 whitespace-nowrap shrink-0">
                 {selectedDate.toLocaleDateString([], {
                   weekday: "long",
                   month: "short",
