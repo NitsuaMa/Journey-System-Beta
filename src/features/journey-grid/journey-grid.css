@@ -1413,28 +1413,44 @@ button.jg-stat__btn:active { background: var(--jg-surface-3); }
   touch-action: manipulation;
 }
 .jg-rail__edit:hover { background: var(--jg-surface-3); }
+/* Reorder controls, inside the sticky machine cell. */
+.jg-machine__reorder {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  flex: 0 0 auto;
+  padding-right: 2px;
+}
+
+.jg-machine__move,
+.jg-machine__drop {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--jg-ink-2, #b6c2cc);
+  border-radius: 6px;
+}
+.jg-machine__move:hover:not(:disabled),
+.jg-machine__drop:hover { background: var(--jg-surface-3); color: var(--jg-ink); }
+.jg-machine__move:disabled { opacity: 0.25; }
+.jg-machine__drop:hover { color: var(--jg-critical, #dc93c2); }
+.jg-machine__move:focus-visible,
+.jg-machine__drop:focus-visible { outline: 2px solid var(--jg-live, #55a8e6); outline-offset: -2px; }
+
+/* The whole routine section reads as editable while reordering, so a trainer
+   can see at a glance which rows the arrows apply to. */
+.jg-grid[data-reorder="1"] .jg-row.has-live .jg-machine {
+  background: var(--jg-surface-2);
+}
+
 .jg-rail__edit.is-on {
   background: var(--jg-live, #0a548b);
   color: #fff;
   border-color: transparent;
-}
-
-/* The routine editor, in place above the grid.
-
-   Bounded rather than auto: the grid underneath is the thing a trainer is
-   working from, and a panel that grows with the machine count would push it
-   off screen exactly when the routine is long enough to need reordering.
-   20rem shows about six rows and leaves the grid visible behind it. */
-.jg-rail__panel {
-  flex: 0 0 auto;
-  height: 20rem;
-  min-height: 0;
-  overflow: hidden;
-  border-bottom: 1px solid var(--jg-border, rgba(127, 127, 127, 0.25));
-}
-
-@media (max-height: 700px) {
-  .jg-rail__panel { height: 15rem; }
 }
 
 /* Focus, renamed to what it does: which machines the list shows. */

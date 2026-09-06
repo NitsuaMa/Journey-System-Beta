@@ -125,7 +125,7 @@ export function CreateClientModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 dark:bg-slate-950/90 backdrop-blur-sm">
-      <Card className="w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl dark:shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[95vh] rounded-[32px] overflow-hidden relative text-slate-900 dark:text-white">
+      <Card className="w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl dark:shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[95dvh] rounded-[32px] overflow-hidden relative text-slate-900 dark:text-white">
         {duplicateWarning && (
           <div className="absolute inset-0 z-50 bg-slate-950/40 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-6">
             <div className="bg-white dark:bg-slate-900 border border-amber-500 rounded-[24px] p-8 max-w-md w-full shadow-2xl relative overflow-hidden">

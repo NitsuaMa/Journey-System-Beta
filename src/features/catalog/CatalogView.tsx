@@ -44,7 +44,7 @@ import type { GroupingMode } from "./types";
  * and landscape were written as two independent render trees over the same
  * data, and they drifted. Same markup, different colours (#F06C22 inline in one
  * tree, bg-cta in the other), a line-clamp on one clinical note and not the
- * other, and a max-h-[50vh] scroll box on the portrait copy alone — which is
+ * other, and a max-h-[50dvh] scroll box on the portrait copy alone — which is
  * what buried Clinical Warnings inside a half-screen box on a screen that
  * already scrolled. One <MachineDetail>, two hosts, no drift.
  *

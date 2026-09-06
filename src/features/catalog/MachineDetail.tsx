@@ -22,7 +22,7 @@ import type { CatalogMachine } from "./types";
  * identical copies of this markup — one in the landscape aside, one in the
  * portrait overlay — which had already drifted: different colour values for the
  * same token, a line-clamp on one clinical note and not the other, and a
- * max-h-[50vh] scroll box on the portrait copy alone. Fixing anything meant
+ * max-h-[50dvh] scroll box on the portrait copy alone. Fixing anything meant
  * finding both.
  *
  * Nothing in here scrolls. The pane that hosts it does, in split mode; in stack

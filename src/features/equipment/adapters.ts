@@ -31,6 +31,7 @@ import type { Machine, ClientMachineSetting, ClientMachineStat, ExerciseLog, Wor
 import type { MachineCatalogEntry, MachineSettingField } from "../../types/machines";
 import { MACHINE_DATABASE } from "../../data/machine-database";
 import { toIsoDay } from "../../lib/client-rollups";
+import { tutOf } from "../clinical-review/facts";
 import {
   EquipmentMachine,
   EquipmentRegion,
@@ -228,8 +229,38 @@ export const NO_USAGE: MachineUsage = {
   firstWeight: null,
   lastWeight: null,
   progressionPct: null,
+  averageTutSeconds: null,
+  tutSamples: 0,
   partial: false,
 };
+
+/**
+ * Mean seconds under tension per set on one machine.
+ *
+ * Uses `tutOf` rather than a second reading of the same fields. A set's time
+ * is recorded under several names depending on how it was performed and which
+ * round of the tracker wrote it — totalTimeUnderLoad, seconds for a TSC or
+ * static hold, averageTimePerRep x reps, machineDurationSeconds — and having
+ * two functions decide what a set's TUT is would guarantee that the Equipment
+ * tab and the Clinical Review eventually disagree about the same set.
+ */
+export function averageTut(
+  machineId: string,
+  logs: ExerciseLog[],
+): { averageTutSeconds: number | null; tutSamples: number } {
+  let total = 0;
+  let n = 0;
+  for (const log of logs) {
+    if (log.machineId !== machineId) continue;
+    const tut = tutOf(log);
+    if (tut === null || tut <= 0) continue;
+    total += tut;
+    n += 1;
+  }
+  return n === 0
+    ? { averageTutSeconds: null, tutSamples: 0 }
+    : { averageTutSeconds: Math.round(total / n), tutSamples: n };
+}
 
 /** Percent change from the first load ever performed to the load in use now. */
 export function progressionPct(first: number | null, current: number | null): number | null {
@@ -253,6 +284,8 @@ export function usageFromStats(stat: ClientMachineStat | undefined, current: num
     firstWeight,
     lastWeight,
     progressionPct: progressionPct(firstWeight, current ?? lastWeight),
+    averageTutSeconds: null,
+    tutSamples: 0,
     partial: false,
   };
 }
@@ -292,6 +325,8 @@ export function usageFromLogs(
     firstWeight: first?.weight ?? null,
     lastWeight: last?.weight ?? null,
     progressionPct: progressionPct(first?.weight ?? null, current ?? last?.weight ?? null),
+    averageTutSeconds: null,
+    tutSamples: 0,
     partial: true,
   };
 }
@@ -351,9 +386,15 @@ export function toEquipmentMachines({
     const currentWeight = asNumber(setting?.currentWeight);
     const loggedSetCount = logCounts.get(id) || 0;
     const isConfigured = Object.keys(settings).length > 0;
-    const usage = machineStats
-      ? usageFromStats(machineStats[id], currentWeight)
-      : usageFromLogs(id, allLogs || [], sessions, currentWeight);
+    /* Time under tension always comes from the logs, whichever way the rest
+       of the usage figures were built — the lifetime rollup has no notion of
+       it. Merged in after, so both paths report it. */
+    const usage: MachineUsage = {
+      ...(machineStats
+        ? usageFromStats(machineStats[id], currentWeight)
+        : usageFromLogs(id, allLogs || [], sessions, currentWeight)),
+      ...averageTut(id, allLogs || []),
+    };
 
     out.push({
       id,

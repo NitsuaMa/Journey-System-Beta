@@ -143,7 +143,7 @@ export function BodyStateTracker({
           <div
             role="dialog"
             aria-label="Body region picker"
-            className="w-full max-w-sm max-h-[85vh] bg-surface-1 border border-div-d rounded-xl shadow-2xl overflow-hidden flex flex-col"
+            className="w-full max-w-sm max-h-[85dvh] bg-surface-1 border border-div-d rounded-xl shadow-2xl overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {view === 'region' ? (

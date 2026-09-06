@@ -98,6 +98,17 @@ export interface MachineUsage {
    * prescribed current weight when there is one, else the last performed.
    */
   progressionPct: number | null;
+  /**
+   * Mean seconds under tension per set on this machine, across the logs on
+   * hand, or null when nothing has been captured.
+   *
+   * Always computed from logs, never from the lifetime rollup — the rollup
+   * (ClientMachineStat) carries first/last weight and a session count and
+   * nothing about time. So this figure can be narrower than `timesPerformed`
+   * beside it, and `tutSamples` says how many sets it actually averages.
+   */
+  averageTutSeconds: number | null;
+  tutSamples: number;
   /** True when built from loaded sessions only, not the lifetime rollup. */
   partial: boolean;
 }

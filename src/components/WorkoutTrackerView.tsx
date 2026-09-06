@@ -112,7 +112,6 @@ import {
   findIncompleteLogs,
 } from "../lib/log-validation";
 import { ActiveSessionTimer } from "./ActiveSessionTimer";
-import { RoutineBuilder } from "../features/routine-builder";
 import { MachineSheet } from "../features/equipment/MachineSheet";
 /* Lazy, and the reason is measurable: the assessment panel is a 162 kB
    chunk (50 kB gzipped) that most sessions never open. A static import
@@ -173,7 +172,7 @@ function ClientSelectionDialog({
           </div>
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto px-6 pb-6 pt-2 space-y-2">
+        <div className="max-h-[60dvh] overflow-y-auto px-6 pb-6 pt-2 space-y-2">
           {filtered.length > 0 ? (
             filtered.map((client) => (
               <button
@@ -335,7 +334,7 @@ function PerformanceEntryDialog({
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-100 rounded-[32px] p-0 overflow-hidden border-slate-200 dark:border-slate-800 bg-white dark:bg-bg-dark shadow-2xl dark:shadow-none flex flex-col h-full max-h-[85vh] sm:max-h-150">
+      <DialogContent className="sm:max-w-100 rounded-[32px] p-0 overflow-hidden border-slate-200 dark:border-slate-800 bg-white dark:bg-bg-dark shadow-2xl dark:shadow-none flex flex-col h-full max-h-[85dvh] sm:max-h-150">
         {/* Header */}
         <div className="bg-white dark:bg-bg-dark p-4 text-slate-900 dark:text-white relative overflow-hidden border-b border-slate-200 dark:border-slate-800 shrink-0">
           <div className="absolute top-0 right-0 p-8 opacity-5 rotate-12">
@@ -744,7 +743,7 @@ function ExerciseHistoryDialog({
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-125 h-[80vh] flex flex-col rounded-3xl p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-125 h-[80dvh] flex flex-col rounded-3xl p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-2">
           <DialogTitle className="text-2xl font-black uppercase italic tracking-tight flex items-center gap-2">
             <History className="w-6 h-6 text-primary" />
@@ -1010,6 +1009,39 @@ export function WorkoutTrackerView({
   const lastMachineLoggedAt = React.useRef<number>(Date.now());
   const pauseStartTime = React.useRef<number | null>(null);
   const currentSegmentPauseDuration = React.useRef<number>(0);
+
+  /**
+   * When the trainer arrived at each machine.
+   *
+   * Time under tension used to come off ONE shared clock: whichever machine
+   * was first in `activeMachineIds` with a finished-but-untimed set consumed
+   * the whole elapsed window, and the clock reset. Attribution was therefore
+   * decided by array position, which is exactly the thing a trainer now
+   * changes mid-session — so reordering silently moved a machine's minutes
+   * onto its neighbour, and going back to correct an earlier set charged it
+   * with all the time spent elsewhere in between.
+   *
+   * A clock per machine, started when the trainer moves to it, removes the
+   * dependency on order entirely. Nothing about the measurement changes; only
+   * the question of whose time it is.
+   */
+  const machineStartedAt = React.useRef<Record<string, number>>({});
+
+  /** Mark a machine as being worked, unless it already is. */
+  const markMachineStarted = React.useCallback((machineId: string) => {
+    if (!machineId) return;
+    if (machineStartedAt.current[machineId] === undefined) {
+      machineStartedAt.current[machineId] = Date.now();
+    }
+  }, []);
+
+  /** When this machine's set began. Falls back to the shared clock for a
+   *  machine completed without ever being focused or touched. */
+  const startedAtFor = React.useCallback(
+    (machineId: string) =>
+      machineStartedAt.current[machineId] ?? lastMachineLoggedAt.current,
+    [],
+  );
   const [isEditingRoutine, setIsEditingRoutine] = useState(false);
   const [showRoutinePicker, setShowRoutinePicker] = useState(false);
   // Which machine the unified sheet is open on. One piece of state, because
@@ -1063,7 +1095,6 @@ export function WorkoutTrackerView({
   const [isSettingUpRoutine, setIsSettingUpRoutine] = useState(false);
   const [showAllMachines, setShowAllMachines] = useState(false);
   const [isLegendOpen, setIsLegendOpen] = useState(false);
-  const [routineMachines, setRoutineMachines] = useState<string[]>([]);
   const [lastRoutineLogs, setLastRoutineLogs] = useState<
     Record<string, ExerciseLog>
   >({});
@@ -1181,13 +1212,13 @@ export function WorkoutTrackerView({
         ) {
           const manualSeconds = logL?.seconds ? parseFloat(logL.seconds) : 0;
           const rawTimeDiff = Math.floor(
-            (Date.now() - lastMachineLoggedAt.current) / 1000,
+            (Date.now() - startedAtFor(mId)) / 1000,
           );
           const computedTimeDiff = Math.max(
             0,
             Math.floor(
               (Date.now() -
-                lastMachineLoggedAt.current -
+                startedAtFor(mId) -
                 currentSegmentPauseDuration.current) /
                 1000,
             ),
@@ -1214,6 +1245,7 @@ export function WorkoutTrackerView({
             },
             "Left",
           );
+          delete machineStartedAt.current[mId];
           lastMachineLoggedAt.current = Date.now();
           currentSegmentPauseDuration.current = 0;
           didUpdate = true;
@@ -1226,13 +1258,13 @@ export function WorkoutTrackerView({
         ) {
           const manualSeconds = logR?.seconds ? parseFloat(logR.seconds) : 0;
           const rawTimeDiff = Math.floor(
-            (Date.now() - lastMachineLoggedAt.current) / 1000,
+            (Date.now() - startedAtFor(mId)) / 1000,
           );
           const computedTimeDiff = Math.max(
             0,
             Math.floor(
               (Date.now() -
-                lastMachineLoggedAt.current -
+                startedAtFor(mId) -
                 currentSegmentPauseDuration.current) /
                 1000,
             ),
@@ -1259,6 +1291,7 @@ export function WorkoutTrackerView({
             },
             "Right",
           );
+          delete machineStartedAt.current[mId];
           lastMachineLoggedAt.current = Date.now();
           currentSegmentPauseDuration.current = 0;
           didUpdate = true;
@@ -1273,13 +1306,13 @@ export function WorkoutTrackerView({
         ) {
           const manualSeconds = log?.seconds ? parseFloat(log.seconds) : 0;
           const rawTimeDiff = Math.floor(
-            (Date.now() - lastMachineLoggedAt.current) / 1000,
+            (Date.now() - startedAtFor(mId)) / 1000,
           );
           const computedTimeDiff = Math.max(
             0,
             Math.floor(
               (Date.now() -
-                lastMachineLoggedAt.current -
+                startedAtFor(mId) -
                 currentSegmentPauseDuration.current) /
                 1000,
             ),
@@ -1301,6 +1334,7 @@ export function WorkoutTrackerView({
             machineDurationSeconds: timeDiff,
             ...(avgTime !== undefined && { averageTimePerRep: avgTime }),
           });
+          delete machineStartedAt.current[mId];
           lastMachineLoggedAt.current = Date.now();
           currentSegmentPauseDuration.current = 0;
           didUpdate = true;
@@ -1380,7 +1414,18 @@ export function WorkoutTrackerView({
   const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
   const [pendingAssignSession, setPendingAssignSession] =
     useState<WorkoutSession | null>(null);
-  const [isRoutinePanelOpen, setIsRoutinePanelOpen] = useState(false);
+  /**
+   * Reorder mode.
+   *
+   * This replaced a 20rem inline panel that rendered the whole shared builder
+   * above the grid. It worked, and it was the wrong shape for the moment it
+   * is used in: it covered the thing the trainer was reading, to let them do
+   * one small thing to it. Adding a machine already happens in place — the
+   * "+" on any machine not in today's routine — so what was actually missing
+   * was a way to change the order, and that fits in the cell the machine name
+   * already occupies.
+   */
+  const [isReorderMode, setIsReorderMode] = useState(false);
 
   /**
    * Every mid-session change to the machine list lands here, and lands
@@ -1392,8 +1437,32 @@ export function WorkoutTrackerView({
    * nothing is written to Firestore either way, so there was never anything
    * for the confirm step to protect.
    */
-  const handleSaveSessionMachineIds = (newIds: string[]) => {
+  /**
+   * Record the sequence this session is actually running.
+   *
+   * Writes to the SESSION document, never the routine. The client's
+   * prescription is unchanged; what changed is the history of this workout,
+   * and that is worth keeping — a trainer looking back at why a session went
+   * the way it did should be able to see that the Leg Press came out and the
+   * Pulldown moved up.
+   *
+   * Fire-and-forget: the trainer's screen updates on the state change, and a
+   * failed write costs the recorded order, not the workout.
+   */
+  const applySessionMachineIds = (newIds: string[]) => {
     setActiveMachineIds(newIds);
+    const sessionId = currentSession?.id;
+    if (!sessionId) return;
+    updateDoc(doc(db, "sessions", sessionId), {
+      sessionMachineIds: newIds,
+      lastHeartbeatAt: serverTimestamp(),
+    }).catch((error) =>
+      handleFirestoreError(error, OperationType.UPDATE, "sessions"),
+    );
+  };
+
+  const handleSaveSessionMachineIds = (newIds: string[]) => {
+    applySessionMachineIds(newIds);
   };
 
   const handleLogTSC = async (seconds: number) => {
@@ -1705,17 +1774,51 @@ export function WorkoutTrackerView({
     selectedClient?.isRoutineBActive,
   ]);
 
+  /**
+   * Load this session's machine list — ONCE.
+   *
+   * This effect used to depend on [currentSession, routines, machines] and
+   * call setActiveMachineIds(routine.machineIds) on every run, which made it
+   * the cause of the reported bug: entering a weight writes lastHeartbeatAt to
+   * the session document, the snapshot fires, `currentSession` arrives as a
+   * new object reference, this effect re-runs, and the machine the trainer
+   * added thirty seconds ago disappears. The same fired on any `machines` or
+   * `routines` snapshot, so a reorder could evaporate for no visible reason at
+   * all. It looked like the routine "reverting"; it was this line.
+   *
+   * A session's machine list belongs to the session, so it is read from the
+   * session document and seeded exactly once per session id. Older sessions
+   * have no sessionMachineIds and fall back to the routine, which is also
+   * where a session started before this change gets its list from.
+   */
+  const seededMachinesForSession = useRef<string | null>(null);
+
   useEffect(() => {
-    if (currentSession) {
-      const routine = routines.find((r) => r.id === currentSession.routineId);
-      if (routine) {
-        setActiveMachineIds(routine.machineIds);
-        setRoutineMachines(routine.machineIds);
-      } else {
-        setActiveMachineIds(machines.map((m) => m.id!));
-        setRoutineMachines([]);
-      }
+    const sessionId = currentSession?.id ?? null;
+    if (!sessionId) {
+      seededMachinesForSession.current = null;
+      return;
     }
+    if (seededMachinesForSession.current === sessionId) return;
+
+    const recorded = currentSession?.sessionMachineIds;
+    if (recorded && recorded.length > 0) {
+      seededMachinesForSession.current = sessionId;
+      setActiveMachineIds(recorded);
+      return;
+    }
+
+    const routine = routines.find((r) => r.id === currentSession?.routineId);
+    if (routine) {
+      seededMachinesForSession.current = sessionId;
+      setActiveMachineIds(routine.machineIds);
+    } else if (!currentSession?.routineId && machines.length > 0) {
+      // A Free session: no routine to read, so the floor is the list.
+      seededMachinesForSession.current = sessionId;
+      setActiveMachineIds(machines.map((m) => m.id!));
+    }
+    // A routineId we have not loaded yet: leave the latch unset and try again
+    // on the next snapshot rather than seeding from an empty list.
   }, [currentSession, routines, machines]);
 
   /* REMOVED (Sep 2026): updateRoutineNote and moveMachine.
@@ -1820,6 +1923,14 @@ export function WorkoutTrackerView({
         return cleaned;
       };
 
+      /* What this session intends to run. Recorded on the document from the
+         first moment so that the session, not the routine, is the thing the
+         screen reads back — see WorkoutSession.sessionMachineIds. */
+      const plannedMachineIds: string[] =
+        customMachines && customMachines.length > 0
+          ? customMachines
+          : (routineId ? routines.find((r) => r.id === routineId) : null)?.machineIds ?? [];
+
       const sessionData: any = cleanFirestorePayload({
         clientId,
         mindbodyClientId:
@@ -1843,6 +1954,7 @@ export function WorkoutTrackerView({
         startedByTrainerId: trainerId || "",
         lastHeartbeatAt: serverTimestamp(),
         status: "In-Progress",
+        sessionMachineIds: plannedMachineIds,
         // Timer bookkeeping lives on the document so elapsed time survives a
         // refresh, a navigation, or moving to another device.
         pausedAt: null,
@@ -1963,14 +2075,10 @@ export function WorkoutTrackerView({
         );
       }
 
-      // 3. Auto-populate logs for routine machines
-      let activeMachineIds = customMachines;
-      if (!activeMachineIds) {
-        const routine = routineId
-          ? routines.find((r) => r.id === routineId)
-          : null;
-        activeMachineIds = routine ? routine.machineIds : [];
-      }
+      // 3. Auto-populate logs for the machines this session will run.
+      //    (Shadows the component-level state of the same name on purpose —
+      //     this is the local list for seeding logs, computed above.)
+      const activeMachineIds = plannedMachineIds;
 
       if (activeMachineIds && activeMachineIds.length > 0) {
         const currentSettings = clientMachineSettings;
@@ -2618,6 +2726,14 @@ export function WorkoutTrackerView({
       ? focusMachineOverride
       : firstIncompleteMachineId;
 
+  /* Arriving at a machine starts its clock. Focus only moves on a deliberate
+     act now — Next, a tap on a Today cell, a logged TSC — so this is a real
+     signal about where the trainer is standing, which it was not while focus
+     advanced by itself. */
+  useEffect(() => {
+    if (gridFocusMachineId) markMachineStarted(gridFocusMachineId);
+  }, [gridFocusMachineId, markMachineStarted]);
+
   /* --- what the Now bar reads. All derived from state that already
      existed for the grid; the bar adds no source of truth of its own. --- */
   const gridFocusRow = useMemo(
@@ -2644,6 +2760,9 @@ export function WorkoutTrackerView({
 
   /** Grid → logs. Mirrors what the old entry dialog wrote, field by field. */
   const handleGridLiveChange = (machineId: string, patch: Partial<LiveSet>) => {
+    /* A trainer can log a machine without ever focusing it — tapping straight
+       into its cell in the grid. First touch counts as arrival. */
+    markMachineStarted(machineId);
     const sessionId = currentSession?.id;
     if (!sessionId) return;
     const row = gridRows.find((r) => r.machine.id === machineId);
@@ -2731,13 +2850,24 @@ export function WorkoutTrackerView({
            confirm that they meant it. Removing it is the reverse of a
            decision made when this was built ("prompts before adding it,
            rather than toggling it in silently"); silence is the point. */
-        onAddMachine: (id: string) =>
-          setActiveMachineIds((prev) =>
-            prev.includes(id) ? prev : [...prev, id],
-          ),
+        onAddMachine: (id: string) => {
+          if (activeMachineIds.includes(id)) return;
+          applySessionMachineIds([...activeMachineIds, id]);
+        },
         focusMachineId: gridFocusMachineId,
         onFocusMachine: setFocusMachineOverride,
         weightStep: 2,
+        reorder: isReorderMode,
+        onMoveMachine: (id: string, direction: -1 | 1) => {
+          const at = activeMachineIds.indexOf(id);
+          const to = at + direction;
+          if (at === -1 || to < 0 || to >= activeMachineIds.length) return;
+          const next = [...activeMachineIds];
+          [next[at], next[to]] = [next[to], next[at]];
+          applySessionMachineIds(next);
+        },
+        onRemoveMachine: (id: string) =>
+          applySessionMachineIds(activeMachineIds.filter((m) => m !== id)),
       }
     : undefined;
 
@@ -3472,12 +3602,12 @@ export function WorkoutTrackerView({
           </span>
           <button
             type="button"
-            className={`jg-rail__edit ${isRoutinePanelOpen ? "is-on" : ""}`}
-            aria-expanded={isRoutinePanelOpen}
-            onClick={() => setIsRoutinePanelOpen((o) => !o)}
+            className={`jg-rail__edit ${isReorderMode ? "is-on" : ""}`}
+            aria-pressed={isReorderMode}
+            onClick={() => setIsReorderMode((o) => !o)}
           >
             <Settings2 className="w-3 h-3 shrink-0" strokeWidth={2.5} />
-            {isRoutinePanelOpen ? "Done" : "Edit Routine"}
+            {isReorderMode ? "Done" : "Reorder"}
           </button>
           <button
             type="button"
@@ -3508,22 +3638,6 @@ export function WorkoutTrackerView({
             )}
           </div>
         </div>
-
-        {/* Reordering happens here, in place, above the list it reorders.
-            Drag a machine and the grid behind it has already changed — the
-            trainer's input is the answer, not a proposal. */}
-        {currentSession && isRoutinePanelOpen && (
-          <div className="jg-rail__panel">
-            <RoutineBuilder
-              mode="in-session"
-              machineIds={activeMachineIds}
-              onChange={handleSaveSessionMachineIds}
-              machines={machines}
-              client={selectedClient}
-              established
-            />
-          </div>
-        )}
 
         {gridLive && (
           <JourneyGrid

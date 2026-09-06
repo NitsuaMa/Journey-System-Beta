@@ -1007,7 +1007,7 @@ export function ClientHistoryCalendar({
           }
         }}
       >
-        <DialogContent className="max-w-4xl sm:max-w-4xl max-h-[95vh] w-full border border-slate-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900 p-0 overflow-hidden shadow-2xl flex flex-col text-slate-800 dark:text-slate-200">
+        <DialogContent className="max-w-4xl sm:max-w-4xl max-h-[95dvh] w-full border border-slate-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900 p-0 overflow-hidden shadow-2xl flex flex-col text-slate-800 dark:text-slate-200">
           {selectedSession && (
             <>
               {/* Header Banner */}
