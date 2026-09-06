@@ -855,6 +855,22 @@ export interface WorkoutSession {
   pausedAt?: any;
   /** Milliseconds accumulated across completed pauses. */
   totalPausedMs?: number;
+  /**
+   * The machine sequence ACTUALLY PERFORMED in this session, in order.
+   *
+   * The routine document is a template: what the client is prescribed. This is
+   * the record: what happened on the day. They diverge constantly and for good
+   * reasons — the client arrived late so it was five machines, another trainer
+   * was on the Leg Press so the Pulldown moved up, there was time at the end
+   * for a bicep curl. All of that is worth keeping in the history and none of
+   * it should edit the prescription.
+   *
+   * Written when the session starts and again whenever the trainer changes the
+   * order mid-workout, so the sequence survives a refresh — which on iPad
+   * Safari is not a hypothetical. Absent on sessions recorded before Sep 2026;
+   * readers fall back to the routine.
+   */
+  sessionMachineIds?: string[];
   status: "In-Progress" | "Completed";
   clientAge?: number;
   clientOccupation?: string;

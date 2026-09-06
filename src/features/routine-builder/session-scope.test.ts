@@ -108,25 +108,41 @@ describe("the pre-session briefing hands its sequence upward", () => {
 });
 
 describe("mid-session changes stay in session state", () => {
-  it("the reorder handler is a plain setState", () => {
-    const body = bodyOf(WTV, "handleSaveSessionMachineIds");
-    expect(body, "handleSaveSessionMachineIds not found").not.toBe("");
+  it("the reorder handler records against the session, not the routine", () => {
+    // This used to assert "no Firestore write at all", which was right while
+    // mid-session order was purely local. It is now RECORDED — the session
+    // document keeps the sequence actually performed — so the rule is about
+    // which collection, not whether there is a write.
+    const body = bodyOf(WTV, "applySessionMachineIds");
+    expect(body, "applySessionMachineIds not found").not.toBe("");
     expect(body).toMatch(/setActiveMachineIds/);
-    const found = MUTATORS.filter((m) => new RegExp(`\\b${m}\\s*\\(`).test(body));
+    expect(body).toMatch(/sessionMachineIds/);
+    expect(body).toMatch(/["']sessions["']/);
     expect(
-      found,
-      "a mid-session reorder must not reach Firestore — the client's routine is " +
-        "edited on their profile, not from a live session",
-    ).toEqual([]);
+      /["']routines["']/.test(body),
+      "a mid-session reorder must never write to the routine — the client's " +
+        "prescription is edited on their profile",
+    ).toBe(false);
   });
 
-  it("adding a machine mid-session only touches session state", () => {
+  it("adding a machine mid-session goes through the same recorder", () => {
     const at = WTV.indexOf("onAddMachine:");
     expect(at, "onAddMachine not found").toBeGreaterThan(-1);
     const handler = WTV.slice(at, at + 400);
-    expect(handler).toMatch(/setActiveMachineIds/);
-    const found = MUTATORS.filter((m) => new RegExp(`\\b${m}\\s*\\(`).test(handler));
-    expect(found).toEqual([]);
+    expect(handler).toMatch(/applySessionMachineIds/);
+    expect(/["']routines["']/.test(handler)).toBe(false);
+  });
+
+  it("the session's machine list is seeded once, not re-derived", () => {
+    // The regression this guards is subtle and was live in production: an
+    // effect that re-seeded activeMachineIds from the routine on every
+    // [currentSession, routines, machines] change. Since writing a log
+    // updates lastHeartbeatAt on the session, entering a weight produced a
+    // new currentSession reference and silently reverted the trainer's
+    // mid-session edits.
+    expect(WTV).toMatch(/seededMachinesForSession/);
+    const at = WTV.indexOf("seededMachinesForSession.current === sessionId");
+    expect(at, "the once-per-session latch is gone").toBeGreaterThan(-1);
   });
 
   it("the session screen never updates or replaces a routine document", () => {

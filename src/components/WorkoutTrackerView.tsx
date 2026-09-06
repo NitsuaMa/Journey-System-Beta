@@ -1063,7 +1063,6 @@ export function WorkoutTrackerView({
   const [isSettingUpRoutine, setIsSettingUpRoutine] = useState(false);
   const [showAllMachines, setShowAllMachines] = useState(false);
   const [isLegendOpen, setIsLegendOpen] = useState(false);
-  const [routineMachines, setRoutineMachines] = useState<string[]>([]);
   const [lastRoutineLogs, setLastRoutineLogs] = useState<
     Record<string, ExerciseLog>
   >({});
@@ -1392,8 +1391,32 @@ export function WorkoutTrackerView({
    * nothing is written to Firestore either way, so there was never anything
    * for the confirm step to protect.
    */
-  const handleSaveSessionMachineIds = (newIds: string[]) => {
+  /**
+   * Record the sequence this session is actually running.
+   *
+   * Writes to the SESSION document, never the routine. The client's
+   * prescription is unchanged; what changed is the history of this workout,
+   * and that is worth keeping — a trainer looking back at why a session went
+   * the way it did should be able to see that the Leg Press came out and the
+   * Pulldown moved up.
+   *
+   * Fire-and-forget: the trainer's screen updates on the state change, and a
+   * failed write costs the recorded order, not the workout.
+   */
+  const applySessionMachineIds = (newIds: string[]) => {
     setActiveMachineIds(newIds);
+    const sessionId = currentSession?.id;
+    if (!sessionId) return;
+    updateDoc(doc(db, "sessions", sessionId), {
+      sessionMachineIds: newIds,
+      lastHeartbeatAt: serverTimestamp(),
+    }).catch((error) =>
+      handleFirestoreError(error, OperationType.UPDATE, "sessions"),
+    );
+  };
+
+  const handleSaveSessionMachineIds = (newIds: string[]) => {
+    applySessionMachineIds(newIds);
   };
 
   const handleLogTSC = async (seconds: number) => {
@@ -1705,17 +1728,51 @@ export function WorkoutTrackerView({
     selectedClient?.isRoutineBActive,
   ]);
 
+  /**
+   * Load this session's machine list — ONCE.
+   *
+   * This effect used to depend on [currentSession, routines, machines] and
+   * call setActiveMachineIds(routine.machineIds) on every run, which made it
+   * the cause of the reported bug: entering a weight writes lastHeartbeatAt to
+   * the session document, the snapshot fires, `currentSession` arrives as a
+   * new object reference, this effect re-runs, and the machine the trainer
+   * added thirty seconds ago disappears. The same fired on any `machines` or
+   * `routines` snapshot, so a reorder could evaporate for no visible reason at
+   * all. It looked like the routine "reverting"; it was this line.
+   *
+   * A session's machine list belongs to the session, so it is read from the
+   * session document and seeded exactly once per session id. Older sessions
+   * have no sessionMachineIds and fall back to the routine, which is also
+   * where a session started before this change gets its list from.
+   */
+  const seededMachinesForSession = useRef<string | null>(null);
+
   useEffect(() => {
-    if (currentSession) {
-      const routine = routines.find((r) => r.id === currentSession.routineId);
-      if (routine) {
-        setActiveMachineIds(routine.machineIds);
-        setRoutineMachines(routine.machineIds);
-      } else {
-        setActiveMachineIds(machines.map((m) => m.id!));
-        setRoutineMachines([]);
-      }
+    const sessionId = currentSession?.id ?? null;
+    if (!sessionId) {
+      seededMachinesForSession.current = null;
+      return;
     }
+    if (seededMachinesForSession.current === sessionId) return;
+
+    const recorded = currentSession?.sessionMachineIds;
+    if (recorded && recorded.length > 0) {
+      seededMachinesForSession.current = sessionId;
+      setActiveMachineIds(recorded);
+      return;
+    }
+
+    const routine = routines.find((r) => r.id === currentSession?.routineId);
+    if (routine) {
+      seededMachinesForSession.current = sessionId;
+      setActiveMachineIds(routine.machineIds);
+    } else if (!currentSession?.routineId && machines.length > 0) {
+      // A Free session: no routine to read, so the floor is the list.
+      seededMachinesForSession.current = sessionId;
+      setActiveMachineIds(machines.map((m) => m.id!));
+    }
+    // A routineId we have not loaded yet: leave the latch unset and try again
+    // on the next snapshot rather than seeding from an empty list.
   }, [currentSession, routines, machines]);
 
   /* REMOVED (Sep 2026): updateRoutineNote and moveMachine.
@@ -1820,6 +1877,14 @@ export function WorkoutTrackerView({
         return cleaned;
       };
 
+      /* What this session intends to run. Recorded on the document from the
+         first moment so that the session, not the routine, is the thing the
+         screen reads back — see WorkoutSession.sessionMachineIds. */
+      const plannedMachineIds: string[] =
+        customMachines && customMachines.length > 0
+          ? customMachines
+          : (routineId ? routines.find((r) => r.id === routineId) : null)?.machineIds ?? [];
+
       const sessionData: any = cleanFirestorePayload({
         clientId,
         mindbodyClientId:
@@ -1843,6 +1908,7 @@ export function WorkoutTrackerView({
         startedByTrainerId: trainerId || "",
         lastHeartbeatAt: serverTimestamp(),
         status: "In-Progress",
+        sessionMachineIds: plannedMachineIds,
         // Timer bookkeeping lives on the document so elapsed time survives a
         // refresh, a navigation, or moving to another device.
         pausedAt: null,
@@ -1963,14 +2029,10 @@ export function WorkoutTrackerView({
         );
       }
 
-      // 3. Auto-populate logs for routine machines
-      let activeMachineIds = customMachines;
-      if (!activeMachineIds) {
-        const routine = routineId
-          ? routines.find((r) => r.id === routineId)
-          : null;
-        activeMachineIds = routine ? routine.machineIds : [];
-      }
+      // 3. Auto-populate logs for the machines this session will run.
+      //    (Shadows the component-level state of the same name on purpose —
+      //     this is the local list for seeding logs, computed above.)
+      const activeMachineIds = plannedMachineIds;
 
       if (activeMachineIds && activeMachineIds.length > 0) {
         const currentSettings = clientMachineSettings;
@@ -2731,10 +2793,10 @@ export function WorkoutTrackerView({
            confirm that they meant it. Removing it is the reverse of a
            decision made when this was built ("prompts before adding it,
            rather than toggling it in silently"); silence is the point. */
-        onAddMachine: (id: string) =>
-          setActiveMachineIds((prev) =>
-            prev.includes(id) ? prev : [...prev, id],
-          ),
+        onAddMachine: (id: string) => {
+          if (activeMachineIds.includes(id)) return;
+          applySessionMachineIds([...activeMachineIds, id]);
+        },
         focusMachineId: gridFocusMachineId,
         onFocusMachine: setFocusMachineOverride,
         weightStep: 2,
