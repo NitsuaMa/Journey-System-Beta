@@ -61,6 +61,13 @@ interface ProfilesViewProps {
   setSelectedClientId: (id: string | null) => void;
   authTrainer: Trainer | null;
   onTrainerLogin?: (trainer: Trainer) => void;
+  /**
+   * Open a trainer's full profile. Available to every trainer, not just
+   * admins -- the profile itself decides what a given viewer may see (see
+   * features/trainer-profile/visibility.ts), so gating the door as well would
+   * only mean nobody could ever look up a colleague's certifications.
+   */
+  onViewTrainerProfile?: (trainerId: string) => void;
   isAdmin: boolean;
 }
 
@@ -76,6 +83,7 @@ export function ProfilesView({
   setSelectedClientId,
   authTrainer,
   onTrainerLogin,
+  onViewTrainerProfile,
   isAdmin,
 }: ProfilesViewProps) {
   const { success: toastSuccess, error: toastError } = useToast();
@@ -438,13 +446,29 @@ export function ProfilesView({
                     </div>
                   )}
 
-                  <Button
-                    variant="outline"
-                    className="w-full h-12 rounded-2xl font-black uppercase tracking-widest text-[11px]"
-                    onClick={() => setView("trainer-hub")}
-                  >
-                    Go to Trainer Settings
-                  </Button>
+                  {onViewTrainerProfile && trainer.id && (
+                    <Button
+                      variant="outline"
+                      className="w-full h-12 rounded-2xl font-black uppercase tracking-widest text-[11px]"
+                      onClick={() => {
+                        onViewTrainerProfile(trainer.id);
+                        setActiveProfile(null);
+                      }}
+                    >
+                      <UserCircle className="w-4 h-4 mr-2" />
+                      View Full Profile
+                    </Button>
+                  )}
+
+                  {authTrainer?.id === trainer.id && (
+                    <Button
+                      variant="outline"
+                      className="w-full h-12 rounded-2xl font-black uppercase tracking-widest text-[11px]"
+                      onClick={() => setView("trainer-hub")}
+                    >
+                      Go to Trainer Settings
+                    </Button>
+                  )}
 
                   {onTrainerLogin && authTrainer?.id !== trainer.id && (
                     <Button

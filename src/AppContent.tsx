@@ -102,7 +102,7 @@ const ClientDirectoryView = lazy(() =>
 );
 // Lazy-loaded: downloaded on first visit to this view, not at app start.
 const TrainerProfileView = lazy(() =>
-  import("./components/TrainerProfileView").then((m) => ({ default: m.TrainerProfileView })),
+  import("./features/trainer-profile").then((m) => ({ default: m.TrainerProfileView })),
 );
 import { StudioSelectionView } from "./components/StudioSelectionView";
 // Lazy-loaded: downloaded on first visit to this view, not at app start.
@@ -1774,6 +1774,10 @@ export default function AppContent({
                 setView={setCurrentView}
                 authTrainer={authTrainer}
                 onTrainerLogin={handleTrainerLogin}
+                onViewTrainerProfile={(id) => {
+                  setSelectedProfileTrainerId(id);
+                  setCurrentView("trainer-profile");
+                }}
                 isAdmin={
                   tokenRole === "Admin" ||
                   authTrainer?.role === "Admin" ||

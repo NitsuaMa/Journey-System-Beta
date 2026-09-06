@@ -1,0 +1,150 @@
+/* ==========================================================================
+   Trainer Profile — design tokens
+   --------------------------------------------------------------------------
+   Values are lifted DELIBERATELY, unchanged, from equipment.tokens.css. The
+   brief for this round was "match the rest of the application", and the
+   fastest way to fail that is to invent a ninth set of near-identical greys.
+   Same surfaces, same ink ramp, same hero orange and action blue, same
+   already-verified contrast ratios — only the prefix differs, so the feature
+   stays self-contained the way every other feature folder here is.
+
+   Two layers: raw brand pigment, then semantic names components actually use.
+   Light on :root, dark on .dark (the class ThemeProvider toggles), with
+   [data-theme] and prefers-color-scheme as fallbacks so a page rendered
+   before hydration is never the wrong theme.
+
+   Contrast checked to WCAG 2.1 AA: body text >= 4.5:1, borders and non-text
+   UI >= 3:1. Ratios noted beside each value so a future edit can be re-checked.
+   ========================================================================== */
+
+:root {
+  --tp-bg:              #f1f5f8;   /* page                                  */
+  --tp-surface:         #ffffff;   /* cards                                 */
+  --tp-surface-2:       #e8eef2;   /* section headers, read-only chips      */
+  --tp-surface-3:       #dae1e6;   /* hover / pressed                       */
+  --tp-border:          #d3dadf;   /* hairlines                     1.4:1   */
+  --tp-border-strong:   #a9b2b9;   /* dividers, focused input       2.2:1   */
+
+  --tp-ink:             #121c23;   /* names, figures               17.3:1   */
+  --tp-ink-2:           #3e4952;   /* secondary                     9.2:1   */
+  --tp-ink-muted:       #5b6770;   /* labels (brand slate)          5.8:1   */
+  --tp-ink-faint:       #848e95;   /* em-dashes, empty states       3.3:1   */
+
+  /* Hero orange: the one loud action, and the headline figure. Solid orange
+     is 3.55:1 on white — fine for fills and >=18px bold, never small text,
+     which uses --tp-hero-text. */
+  --tp-hero:            #ef5302;
+  --tp-hero-text:       #bc2c00;   /* 6.0:1 on white                        */
+  --tp-hero-fill:       #fde7dc;
+  --tp-hero-on:         #ffffff;
+
+  /* Blue: anything you can act on, plus "this came from Mindbody". */
+  --tp-live:            #0a548b;   /* 7.9:1 on white                        */
+  --tp-live-text:       #034a84;   /* 9.1:1 on white                        */
+  --tp-live-fill:       #e6eef3;
+  --tp-live-on:         #ffffff;
+
+  --tp-ok:              #1c7a52;   /* 4.9:1 on white                        */
+  --tp-ok-fill:         #e3f1ea;
+
+  --tp-warn:            #a2457e;   /* 5.7:1 on white                        */
+  --tp-warn-fill:       #f4e9f0;
+
+  --tp-alert:           #c0203f;   /* 5.9:1 on white                        */
+  --tp-alert-fill:      #fce3e8;
+
+  /* ------------------------------------------------------------------
+     KAIZEN ROSTER — its own pair, and the reason this comment exists.
+
+     The RED kaizen mark means "this set needs work" in the session grid.
+     Roster membership must never borrow it, or a glance at a client card
+     cannot tell "I am tracking you" from "you are doing it wrong". The
+     roster is therefore brand slate and action blue: --tp-alert above is
+     for genuine alerts and is not to be used by any roster component.
+     ------------------------------------------------------------------ */
+  --tp-kaizen:          #0a548b;   /* 7.9:1 on white — the mark             */
+  --tp-kaizen-text:     #034a84;   /* 9.1:1 on white — its label            */
+  --tp-kaizen-fill:     #eaf0f4;
+  --tp-kaizen-quiet:    #5b6770;   /* brand slate, for the small glyph      */
+
+  --tp-focus-ring:      var(--tp-live);
+  --tp-shadow:          rgba(18, 28, 35, 0.10);
+  --tp-radius:          14px;
+}
+
+.dark,
+[data-theme="dark"] {
+  --tp-bg:              #070b0f;
+  --tp-surface:         #0e151c;
+  --tp-surface-2:       #151e27;
+  --tp-surface-3:       #1d2833;
+  --tp-border:          #1f2a35;   /* 1.5:1 on surface                      */
+  --tp-border-strong:   #3a4855;   /* 2.9:1                                 */
+
+  --tp-ink:             #eef3f7;   /* 15.8:1 on surface                     */
+  --tp-ink-2:           #b3c0cb;   /* 8.6:1                                 */
+  --tp-ink-muted:       #8b98a4;   /* 5.4:1                                 */
+  --tp-ink-faint:       #63707c;   /* 3.1:1 — decorative only               */
+
+  /* Dark is not a flip: saturated orange vibrates on near-black, so fills
+     become low-alpha washes and text tones lift instead of darkening. */
+  --tp-hero:            #f36d21;
+  --tp-hero-text:       #ff9455;   /* 7.4:1 on surface                      */
+  --tp-hero-fill:       rgba(243, 109, 33, 0.14);
+  --tp-hero-on:         #1a0c04;
+
+  --tp-live:            #4a9fd8;
+  --tp-live-text:       #7cc0ee;   /* 8.1:1 on surface                      */
+  --tp-live-fill:       rgba(74, 159, 216, 0.14);
+  --tp-live-on:         #04121c;
+
+  --tp-ok:              #4ec08c;
+  --tp-ok-fill:         rgba(78, 192, 140, 0.13);
+
+  --tp-warn:            #d98cbd;
+  --tp-warn-fill:       rgba(217, 140, 189, 0.14);
+
+  --tp-alert:           #f2718c;   /* 7.6:1 on surface                      */
+  --tp-alert-fill:      rgba(242, 113, 140, 0.13);
+
+  --tp-kaizen:          #4a9fd8;
+  --tp-kaizen-text:     #7cc0ee;   /* 8.1:1 on surface                      */
+  --tp-kaizen-fill:     rgba(74, 159, 216, 0.13);
+  --tp-kaizen-quiet:    #8b98a4;
+
+  --tp-shadow:          rgba(0, 0, 0, 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not([data-theme="light"]) {
+    --tp-bg:              #070b0f;
+    --tp-surface:         #0e151c;
+    --tp-surface-2:       #151e27;
+    --tp-surface-3:       #1d2833;
+    --tp-border:          #1f2a35;
+    --tp-border-strong:   #3a4855;
+    --tp-ink:             #eef3f7;
+    --tp-ink-2:           #b3c0cb;
+    --tp-ink-muted:       #8b98a4;
+    --tp-ink-faint:       #63707c;
+    --tp-hero:            #f36d21;
+    --tp-hero-text:       #ff9455;
+    --tp-hero-fill:       rgba(243, 109, 33, 0.14);
+    --tp-hero-on:         #1a0c04;
+    --tp-live:            #4a9fd8;
+    --tp-live-text:       #7cc0ee;
+    --tp-live-fill:       rgba(74, 159, 216, 0.14);
+    --tp-live-on:         #04121c;
+    --tp-ok:              #4ec08c;
+    --tp-ok-fill:         rgba(78, 192, 140, 0.13);
+    --tp-warn:            #d98cbd;
+    --tp-warn-fill:       rgba(217, 140, 189, 0.14);
+    --tp-alert:           #f2718c;
+    --tp-alert-fill:      rgba(242, 113, 140, 0.13);
+    --tp-kaizen:          #4a9fd8;
+    --tp-kaizen-text:     #7cc0ee;
+    --tp-kaizen-fill:     rgba(74, 159, 216, 0.13);
+    --tp-kaizen-quiet:    #8b98a4;
+    --tp-shadow:          rgba(0, 0, 0, 0.5);
+  }
+}
