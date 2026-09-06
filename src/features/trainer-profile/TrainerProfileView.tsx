@@ -16,7 +16,10 @@ import { AboutPanel } from "./AboutPanel";
 import { StudioAccessPanel } from "./StudioAccessPanel";
 import { TodaySchedule } from "./TodaySchedule";
 import { RecentlyCoached } from "./RecentlyCoached";
-import { recentlyCoachedFor, upcomingFor } from "./adapters";
+import { upcomingFor } from "./adapters";
+import { CoachingLoad } from "./CoachingLoad";
+import { deriveTrainerStats } from "./stats";
+import { useRecentlyCoached } from "./useRecentlyCoached";
 import { resolveProfileVisibility, scopeNotice } from "./visibility";
 import "./trainer-profile.css";
 
@@ -73,10 +76,11 @@ export function TrainerProfileView({
     [schedules, trainer, clients, visibility.showSchedule],
   );
 
-  const coached = useMemo(
-    () => (visibility.showRecentlyCoached ? recentlyCoachedFor(sessions, trainer, clients) : []),
-    [sessions, trainer, clients, visibility.showRecentlyCoached],
-  );
+  const stats = useMemo(() => deriveTrainerStats(trainer), [trainer]);
+
+  const { rows: coached } = useRecentlyCoached(trainer, clients, sessions, {
+    enabled: visibility.showRecentlyCoached,
+  });
 
   const openClient = (clientId: string) => {
     onSelectClient(clientId);
@@ -121,6 +125,8 @@ export function TrainerProfileView({
         onOpenCalendar={() => setView("calendar")}
       />
 
+      {visibility.showCoachingLoad && <CoachingLoad stats={stats} />}
+
       <div className="tp-band">
         <AboutPanel trainer={trainer} visibility={visibility} />
         <StudioAccessPanel trainer={trainer} studios={studios} />
@@ -134,7 +140,7 @@ export function TrainerProfileView({
           {visibility.showRecentlyCoached && (
             <RecentlyCoached
               rows={coached}
-              windowLabel="Last 24 hours"
+              windowLabel="Last 30 days"
               onSelectClient={openClient}
             />
           )}
