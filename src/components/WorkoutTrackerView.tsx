@@ -1718,49 +1718,31 @@ export function WorkoutTrackerView({
     }
   }, [currentSession, routines, machines]);
 
-  const updateRoutineNote = async (machineId: string, note: string) => {
-    if (!currentSession?.routineId) return;
-    const routine = routines.find((r) => r.id === currentSession.routineId);
-    if (!routine) return;
+  /* REMOVED (Sep 2026): updateRoutineNote and moveMachine.
 
-    try {
-      const notes = { ...(routine.machineNotes || {}), [machineId]: note };
-      await updateDoc(doc(db, "routines", routine.id!), {
-        machineNotes: notes,
-      });
-    } catch (error) {
-      console.error("Error updating routine note:", error);
-    }
-  };
-
-  const moveMachine = async (machineId: string, direction: "up" | "down") => {
-    if (!currentSession?.routineId) return;
-    const routine = routines.find((r) => r.id === currentSession.routineId);
-    if (!routine) return;
-
-    const ids = [...routine.machineIds];
-    const idx = ids.indexOf(machineId);
-    if (idx === -1) return;
-
-    if (direction === "up" && idx > 0) {
-      [ids[idx], ids[idx - 1]] = [ids[idx - 1], ids[idx]];
-    } else if (direction === "down" && idx < ids.length - 1) {
-      [ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]];
-    }
-
-    try {
-      await updateDoc(doc(db, "routines", routine.id!), { machineIds: ids });
-    } catch (error) {
-      console.error("Error moving machine:", error);
-    }
-  };
+     Both wrote straight to the client's routine document — machineNotes and
+     machineIds respectively — from inside the live session screen, and
+     neither was called from anywhere. Unreachable, so nothing changes by
+     deleting them; but a function named moveMachine that permanently
+     reorders a client's prescribed routine, sitting in the session
+     component, is the precise mistake the session-scope rule exists to
+     prevent, and it was one wiring-up away from happening. Reordering
+     mid-session goes through handleSaveSessionMachineIds, which is local
+     state; routine notes are edited on the client profile. */
 
   const startNewSession = async (
     routineType: "A" | "B" | "Free",
     sessionType: SessionType = "Standard",
     customMachines?: string[],
     adjustmentNote?: string,
-    permanentSave?: boolean,
+    /* `permanentSave` used to sit here, and writing it out is the only
+       reason it is worth mentioning: it let a caller rewrite the client's
+       saved routine as a side effect of starting a session. No caller ever
+       passed true — the briefing hardcoded false and the consultation path
+       omitted it — so the branch was dead, and dead is exactly how a rule
+       stops being enforced by structure and starts being enforced by
+       everyone remembering. Permanent routine changes are made on the client
+       profile. (Sep 2026) */
     preSessionCheckIn?: PreSessionCheckIn,
   ) => {
     if (!clientId) return;
@@ -1798,12 +1780,6 @@ export function WorkoutTrackerView({
           }
         } else {
           routineId = routine.id;
-          // If permanent save requested, update existing routine
-          if (permanentSave && customMachines) {
-            await updateDoc(doc(db, "routines", routine.id), {
-              machineIds: customMachines,
-            });
-          }
         }
       }
 
@@ -2843,7 +2819,6 @@ export function WorkoutTrackerView({
             undefined,
             customMachines,
             note,
-            false,
             checkIn,
           )
         }

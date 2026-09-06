@@ -2,6 +2,7 @@
  * THE SESSION-SCOPE INVARIANT.
  *
  * Round: Unified Routine Builder, Sep 2026.
+ *        Retargeted when the in-session modal became an inline panel.
  *
  * A trainer has full discretion over machine order and count on the day. The
  * client arrived late, so it is five machines instead of seven. The client
@@ -13,17 +14,23 @@
  * client's routine. Permanent routine changes are made on the client profile
  * and nowhere else.
  *
- * Today that holds by construction — the session surfaces simply never call
- * a routine write. "By construction" is precisely the kind of guarantee that
- * stops being true without anyone noticing, and the failure is silent and
- * expensive: a trainer swaps two machines because a station was busy, and the
- * client's prescribed routine is quietly rewritten to match a one-off.
+ * These tests read the source and assert that directly, in the same spirit as
+ * journey-grid/contrast.test.ts parsing the token file. A unit test of the
+ * components cannot catch this — the dangerous version still renders
+ * correctly and still passes every behavioural test. What matters is which
+ * functions each file is allowed to call.
  *
- * These tests read the source files and assert the rule directly, in the same
- * spirit as journey-grid/contrast.test.ts parsing the token file. A unit test
- * of the components could not catch this — the dangerous version still
- * renders correctly and still passes every behavioural test. What matters is
- * which functions the file is allowed to call at all.
+ * ── Why this file changed shape ──────────────────────────────────────────
+ * It first asserted that the session surfaces contained NO Firestore mutator
+ * at all, which worked while the in-session editor was its own modal. Folding
+ * that modal into WorkoutTrackerView made the blunt assertion useless: that
+ * file legitimately writes logs, sessions and clients on every set. So the
+ * assertions are now about the `routines` collection specifically, and about
+ * the one handler that commits a mid-session reorder.
+ *
+ * The test failing when the modal was deleted is the system working. It is
+ * meant to fail when the shape of the thing it guards changes, so that
+ * someone has to re-state the rule rather than quietly lose it.
  */
 
 import { readFileSync } from "node:fs";
@@ -40,62 +47,113 @@ function code(source: string): string {
     .replace(/(^|[^:])\/\/.*$/gm, "$1");
 }
 
-const SESSION_SCOPED = [
-  "src/components/SessionRoutineManagerModal.tsx",
-  "src/features/briefing/BriefingScreen.tsx",
-];
+/** The body of a `const name = (...) => { ... }` declaration. */
+function bodyOf(source: string, name: string): string {
+  const at = source.indexOf(`const ${name} =`);
+  if (at === -1) return "";
+  const open = source.indexOf("{", at);
+  let depth = 0;
+  for (let i = open; i < source.length; i++) {
+    if (source[i] === "{") depth++;
+    else if (source[i] === "}" && --depth === 0) return source.slice(open, i + 1);
+  }
+  return "";
+}
 
-/** Firestore mutators that could reach a routine document. */
 const MUTATORS = ["updateDoc", "setDoc", "addDoc", "deleteDoc", "writeBatch", "runTransaction"];
 
-describe("session-scoped surfaces never persist a routine change", () => {
-  for (const file of SESSION_SCOPED) {
-    it(`${file} contains no Firestore write at all`, () => {
-      const src = code(read(file));
-      const found = MUTATORS.filter((m) => new RegExp(`\\b${m}\\s*\\(`).test(src));
-      expect(
-        found,
-        `${file} must not write to Firestore — a change made during a session is ` +
-          `for that session only. Permanent routine changes belong in EditRoutineDrawer.`,
-      ).toEqual([]);
-    });
+const WTV = code(read("src/components/WorkoutTrackerView.tsx"));
+const BRIEFING = code(read("src/features/briefing/BriefingScreen.tsx"));
 
-    it(`${file} does not import the routines collection`, () => {
-      const src = code(read(file));
-      expect(/["']routines["']/.test(src), `${file} references the routines collection`).toBe(false);
+describe("the shared builder never persists anything", () => {
+  // Whichever surface mounts it, the builder is controlled: ids in, ids out.
+  // The moment it learns to save, every surface it serves saves with it.
+  const files = [
+    "RoutineBuilder.tsx",
+    "SequenceMachineRow.tsx",
+    "MachinePicker.tsx",
+    "SwapSheet.tsx",
+    "RotationPanel.tsx",
+    "SuggestionRail.tsx",
+    "CoverageStrip.tsx",
+    "ViolationCard.tsx",
+    "RoutineFigure.tsx",
+  ];
+  for (const file of files) {
+    it(`${file} contains no Firestore write`, () => {
+      const src = code(read(`src/features/routine-builder/${file}`));
+      const found = MUTATORS.filter((m) => new RegExp(`\\b${m}\\s*\\(`).test(src));
+      expect(found, `${file} must stay controlled — ids in, ids out`).toEqual([]);
     });
   }
+});
 
-  it("the briefing hands its sequence upward and never saves it itself", () => {
-    const src = code(read("src/features/briefing/BriefingScreen.tsx"));
-    // The one exit: onStart, with customMachines only when the trainer adjusted.
-    expect(src).toMatch(/onStart\(/);
-    expect(src).toMatch(/adjustedMachineIds/);
+describe("the pre-session briefing hands its sequence upward", () => {
+  it("contains no Firestore write at all", () => {
+    const found = MUTATORS.filter((m) => new RegExp(`\\b${m}\\s*\\(`).test(BRIEFING));
+    expect(found).toEqual([]);
   });
 
-  it("the briefing call site never asks startNewSession to persist", () => {
-    // startNewSession takes a `permanentSave` flag. It exists for the client
-    // profile's path; the briefing must always pass false, so an adjustment
-    // made before a session seeds today's logs and nothing else.
-    const src = code(read("src/components/WorkoutTrackerView.tsx"));
-    const call = src.match(/startNewSession\(\s*routineType[\s\S]{0,300}?\)/);
-    expect(call, "could not find the BriefingScreen onStart wiring").not.toBeNull();
-    expect(call![0]).toMatch(/false/);
-    expect(call![0]).not.toMatch(/true\s*,\s*checkIn/);
+  it("starting a session has no way to persist a routine", () => {
+    // startNewSession used to take a `permanentSave` flag that rewrote the
+    // client's saved routine as a side effect of starting a session. No
+    // caller ever set it, which is what made it dangerous: a dead branch
+    // enabling exactly the forbidden thing, one argument away from firing.
+    expect(
+      /permanentSave/.test(WTV),
+      "permanentSave is gone on purpose — do not reintroduce a way to save a " +
+        "routine from the session path",
+    ).toBe(false);
+  });
+});
+
+describe("mid-session changes stay in session state", () => {
+  it("the reorder handler is a plain setState", () => {
+    const body = bodyOf(WTV, "handleSaveSessionMachineIds");
+    expect(body, "handleSaveSessionMachineIds not found").not.toBe("");
+    expect(body).toMatch(/setActiveMachineIds/);
+    const found = MUTATORS.filter((m) => new RegExp(`\\b${m}\\s*\\(`).test(body));
+    expect(
+      found,
+      "a mid-session reorder must not reach Firestore — the client's routine is " +
+        "edited on their profile, not from a live session",
+    ).toEqual([]);
+  });
+
+  it("adding a machine mid-session only touches session state", () => {
+    const at = WTV.indexOf("onAddMachine:");
+    expect(at, "onAddMachine not found").toBeGreaterThan(-1);
+    const handler = WTV.slice(at, at + 400);
+    expect(handler).toMatch(/setActiveMachineIds/);
+    const found = MUTATORS.filter((m) => new RegExp(`\\b${m}\\s*\\(`).test(handler));
+    expect(found).toEqual([]);
+  });
+
+  it("the session screen never updates or replaces a routine document", () => {
+    // Creating one is allowed: the briefing's Create_A / Create_B path is how
+    // a client's first routine comes into existence. Rewriting an existing
+    // one from here is not.
+    const writes = [
+      ...WTV.matchAll(/\b(updateDoc|setDoc|deleteDoc)\s*\(\s*doc\([^)]*?["']routines["']/g),
+    ];
+    expect(
+      writes.map((m) => m[0]),
+      "the live session must not rewrite a saved routine",
+    ).toEqual([]);
   });
 });
 
 describe("the client profile is the only place a routine is rewritten", () => {
+  const DRAWER = code(read("src/components/EditRoutineDrawer.tsx"));
+
   it("EditRoutineDrawer writes routines and logs an adjustment", () => {
-    const src = code(read("src/components/EditRoutineDrawer.tsx"));
-    expect(src).toMatch(/routineAdjustments/);
-    expect(src).toMatch(/\b(updateDoc|addDoc)\s*\(/);
+    expect(DRAWER).toMatch(/routineAdjustments/);
+    expect(DRAWER).toMatch(/\b(updateDoc|addDoc)\s*\(/);
   });
 
-  it("every routine rewrite is accompanied by an audit reason", () => {
-    // The reason gate is what makes a permanent change reviewable later. If
-    // this disappears, deviations from a studio standard become untraceable.
-    const src = code(read("src/components/EditRoutineDrawer.tsx"));
-    expect(src).toMatch(/reason\.trim\(\)\.length\s*[<>]=?\s*3/);
+  it("every routine rewrite is gated on an audit reason", () => {
+    // The reason gate is what makes a permanent change reviewable later. If it
+    // goes, deviations from a studio standard become untraceable.
+    expect(DRAWER).toMatch(/reason\.trim\(\)\.length\s*[<>]=?\s*3/);
   });
 });
