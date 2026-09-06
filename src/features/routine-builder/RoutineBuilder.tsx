@@ -53,6 +53,7 @@ import { RotationPanel } from "./RotationPanel";
 import { RoutineFigure } from "./RoutineFigure";
 import { SequenceMachineRow } from "./SequenceMachineRow";
 import { SuggestionRail } from "./SuggestionRail";
+import { SwapSheet } from "./SwapSheet";
 import { ViolationCard } from "./ViolationCard";
 import { MACHINE_ABBR, asAcademyString } from "./academy";
 import {
@@ -61,12 +62,13 @@ import {
   analyzeRoutine,
   autoSequence,
   normalizeIds,
+  replaceInSequence,
   suggestMachines,
 } from "./engine";
 import { MODE_CONFIG, type RoutineBuilderProps } from "./types";
 import "./routine-builder.css";
 
-type SheetKind = "picker" | "ideas" | "warnings" | "figure" | null;
+type SheetKind = "picker" | "ideas" | "warnings" | "figure" | "swap" | null;
 
 export function RoutineBuilder({
   mode,
@@ -95,6 +97,7 @@ export function RoutineBuilder({
   const [sheet, setSheet] = useState<SheetKind>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [noteOpenFor, setNoteOpenFor] = useState<string | null>(null);
+  const [swapFor, setSwapFor] = useState<string | null>(null);
 
   const ids = useMemo(() => normalizeIds(machineIds), [machineIds]);
 
@@ -227,6 +230,15 @@ export function RoutineBuilder({
 
   const runAutoSequence = useCallback(() => onChange(autoSequence(ids)), [ids, onChange]);
 
+  const swap = useCallback(
+    (target: string, replacements: string[]) => {
+      onChange(replaceInSequence(ids, target, replacements));
+      setSwapFor(null);
+      setSheet(null);
+    },
+    [ids, onChange],
+  );
+
   const setNote = (machineId: string, text: string) => {
     if (!onMachineNotesChange) return;
     const next = { ...(machineNotes ?? {}) };
@@ -356,6 +368,21 @@ export function RoutineBuilder({
         >
           {ids.length} machine{ids.length === 1 ? "" : "s"}
         </span>
+        {cfg.scope && (
+          <span
+            className={cn(
+              "rb-head__scope",
+              cfg.scope.permanent ? "rb-head__scope--permanent" : "rb-head__scope--today",
+            )}
+            title={
+              cfg.scope.permanent
+                ? "Changes here are saved to the client's routine."
+                : "Changes here apply to this session only. The client's saved routine is not touched."
+            }
+          >
+            {cfg.scope.label}
+          </span>
+        )}
         {ids.length > 0 && (
           <span className="rb-head__shorthand" title={asAcademyString(ids)}>
             {asAcademyString(ids)}
@@ -414,6 +441,14 @@ export function RoutineBuilder({
                         noteOpen={noteOpenFor === id}
                         onToggleNote={() => setNoteOpenFor(noteOpenFor === id ? null : id)}
                         onRemove={disabled ? undefined : () => remove(id)}
+                        onSwap={
+                          disabled || !cfg.allowSwap
+                            ? undefined
+                            : () => {
+                                setSwapFor(id);
+                                setSheet("swap");
+                              }
+                        }
                         missing={!availableIds.includes(id)}
                         dense={cfg.dense}
                         disabled={disabled}
@@ -529,13 +564,29 @@ export function RoutineBuilder({
                   ? "Suggestions"
                   : sheet === "figure"
                     ? "Muscles worked"
-                    : "Programming notes"}
+                    : sheet === "swap"
+                      ? `Swap ${swapFor ? machineName(swapFor) : "machine"}`
+                      : "Programming notes"}
             </SheetTitle>
           </SheetHeader>
           <div className="rb-sheet" style={{ overflowY: "auto", padding: "0 0.25rem 0.75rem" }}>
             {sheet === "picker" && picker}
             {sheet === "ideas" && ideas}
             {sheet === "warnings" && warnings}
+            {sheet === "swap" && swapFor && (
+              <SwapSheet
+                machineId={swapFor}
+                machineName={machineName}
+                available={availableIds}
+                currentIds={ids}
+                onSwap={(replacements) => swap(swapFor, replacements)}
+                onRemove={() => {
+                  remove(swapFor);
+                  setSwapFor(null);
+                  setSheet(null);
+                }}
+              />
+            )}
             {sheet === "figure" && (
               <RoutineFigure machineIds={ids} gender={client?.gender} scale={1.15} />
             )}

@@ -14,7 +14,7 @@
  * asks for what it needs instead of the row guessing.
  */
 
-import { GripVertical, StickyNote, Trash2 } from "lucide-react";
+import { GripVertical, Replace, StickyNote, Trash2 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "../../lib/utils";
@@ -34,6 +34,9 @@ export interface SequenceMachineRowProps {
   noteOpen?: boolean;
   onToggleNote?: () => void;
   onRemove?: () => void;
+  /** Swap this machine out for today — busy station, or a joint that will
+   *  not tolerate it. Absent on the surfaces that persist a routine. */
+  onSwap?: () => void;
   /** Not at this studio — reorderable, but flagged. */
   missing?: boolean;
   dense?: boolean;
@@ -62,6 +65,7 @@ export function SequenceMachineRow({
   noteOpen = false,
   onToggleNote,
   onRemove,
+  onSwap,
   missing = false,
   dense = false,
   disabled = false,
@@ -131,6 +135,17 @@ export function SequenceMachineRow({
             aria-pressed={noteOpen}
           >
             <StickyNote size={15} aria-hidden />
+          </button>
+        )}
+
+        {onSwap && !disabled && (
+          <button
+            type="button"
+            className="rb-row__btn"
+            onClick={onSwap}
+            aria-label={`Swap ${name} out for today`}
+          >
+            <Replace size={15} aria-hidden />
           </button>
         )}
 

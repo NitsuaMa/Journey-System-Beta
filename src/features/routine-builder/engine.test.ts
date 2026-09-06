@@ -25,6 +25,7 @@ import {
   analyzeRoutine,
   autoSequence,
   findViolations,
+  replaceInSequence,
   resolveRoutineAnatomy,
   substitutesFor,
   suggestMachines,
@@ -446,5 +447,58 @@ describe("presentation helpers", () => {
     expect(preferenceFromGender("M")).toBe("male");
     expect(preferenceFromGender("Other")).toBe("neutral");
     expect(preferenceFromGender(undefined)).toBe("neutral");
+  });
+});
+
+describe("swapping a machine out mid-session", () => {
+  // A busy station, a late client, a joint that will not tolerate it today.
+  // None of this touches the client's saved routine — see session-scope.test.ts
+  // — but the sequence it produces still has to be a valid one.
+
+  it("puts the replacement where the old machine was", () => {
+    const before = ["m-compound-row", "m-leg-press", "m-chest-press"];
+    expect(replaceInSequence(before, "m-leg-press", ["m-ext"])).toEqual([
+      "m-compound-row",
+      "m-ext",
+      "m-chest-press",
+    ]);
+  });
+
+  it("expands one machine into the Academy's documented set, in place", () => {
+    const before = ["m-compound-row", "m-leg-press", "m-chest-press"];
+    const subs = substitutesFor("m-leg-press", Object.keys(MACHINE_CATEGORY))[0].machineIds;
+    expect(replaceInSequence(before, "m-leg-press", subs)).toEqual([
+      "m-compound-row",
+      ...subs,
+      "m-chest-press",
+    ]);
+  });
+
+  it("never duplicates a machine already in the routine", () => {
+    const before = ["m-ext", "m-leg-press", "m-lumbar"];
+    // The documented set is LE + ABD + Lumb; LE and Lumb are already present.
+    const next = replaceInSequence(before, "m-leg-press", ["m-ext", "m-hip-abd", "m-lumbar"]);
+    expect(next).toEqual(["m-ext", "m-hip-abd", "m-lumbar"]);
+    expect(new Set(next).size).toBe(next.length);
+  });
+
+  it("leaves the sequence alone when the machine is not in it", () => {
+    const before = ["m-compound-row", "m-chest-press"];
+    expect(replaceInSequence(before, "m-leg-press", ["m-ext"])).toEqual(before);
+  });
+
+  it("resolves a legacy id before swapping", () => {
+    expect(replaceInSequence(["leg_press", "m-compound-row"], "leg_press", ["m-ext"])).toEqual([
+      "m-ext",
+      "m-compound-row",
+    ]);
+  });
+
+  it("dropping a machine with no replacement shortens the routine by one", () => {
+    const before = ["m-compound-row", "m-leg-press", "m-chest-press"];
+    expect(replaceInSequence(before, "m-leg-press", [])).toEqual([
+      "m-compound-row",
+      "m-chest-press",
+    ]);
   });
 });

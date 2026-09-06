@@ -84,6 +84,91 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The session/permanent boundary, stated rather than implied.
+
+   One component now serves both the client profile and a live session, so
+   "am I about to change this client's routine, or just today?" can no longer
+   be answered by noticing which screen you are on. Today-only is the quieter
+   of the two: it is the common case and it is the safe one. */
+.rb-head__scope {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.rb-head__scope--today {
+  color: var(--rb-ink-muted);
+  background: var(--rb-surface-2);
+  border: 1px solid var(--rb-border);
+}
+.rb-head__scope--permanent {
+  color: var(--rb-live-text);
+  background: var(--rb-live-fill);
+  border: 1px solid var(--rb-live);
+}
+
+/* ── Swap sheet ─────────────────────────────────────────────────────────── */
+
+.rb-swap { display: flex; flex-direction: column; gap: 0.7rem; }
+.rb-swap__list { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.rb-swap__item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.35rem 0.55rem;
+  text-align: left;
+  border-radius: var(--rb-radius-sm);
+  border: 1px solid var(--rb-border);
+  background: var(--rb-surface);
+  color: var(--rb-ink);
+}
+.rb-swap__item:hover:not(:disabled) { border-color: var(--rb-live); background: var(--rb-live-fill); }
+.rb-swap__item:focus-visible { outline: 2px solid var(--rb-focus-ring); outline-offset: 1px; }
+.rb-swap__item--off { opacity: 0.5; cursor: not-allowed; }
+
+.rb-swap__from {
+  font-weight: 800;
+  font-size: 0.68rem;
+  color: var(--rb-ink-faint);
+  text-decoration: line-through;
+  flex: 0 0 auto;
+  min-width: 2.5rem;
+}
+.rb-swap__arrow { color: var(--rb-ink-faint); flex: 0 0 auto; }
+.rb-swap__to {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--rb-font-display);
+  font-style: italic;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+.rb-swap__drop {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  align-self: flex-start;
+  min-height: 2.25rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--rb-radius-sm);
+  border: 1px dashed var(--rb-border-strong);
+  background: transparent;
+  color: var(--rb-ink-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.rb-swap__drop:hover { color: var(--rb-avoid); border-color: var(--rb-avoid-edge); }
+
 .rb-head__actions { display: flex; align-items: center; gap: 0.4rem; flex: 0 0 auto; }
 
 /* ── Body: list + rail ──────────────────────────────────────────────────── */

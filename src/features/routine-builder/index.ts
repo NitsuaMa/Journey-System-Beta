@@ -18,6 +18,7 @@ export { SuggestionRail } from "./SuggestionRail";
 export { MachinePicker } from "./MachinePicker";
 export { SequenceMachineRow } from "./SequenceMachineRow";
 export { ViolationCard } from "./ViolationCard";
+export { SwapSheet } from "./SwapSheet";
 
 export type { RoutineBuilderProps, BuilderMode, MachineHistoryEntry, ModeConfig } from "./types";
 export { MODE_CONFIG } from "./types";
@@ -30,6 +31,7 @@ export {
   findViolations,
   muscleLabel,
   normalizeIds,
+  replaceInSequence,
   resolveRoutineAnatomy,
   substitutesFor,
   suggestMachines,

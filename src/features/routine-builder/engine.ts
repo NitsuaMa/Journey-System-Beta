@@ -824,6 +824,38 @@ export function substitutesFor(
   }));
 }
 
+/**
+ * Put one or more machines where another one was.
+ *
+ * Position is preserved because position is the thing being protected: a
+ * trainer swapping a busy Leg Press for Leg Extension + Abduction is not
+ * reordering the session, and dropping the replacements at the end would
+ * silently move the swap past everything that follows it — which is how a
+ * substitution turns into a sequencing violation nobody asked for.
+ *
+ * Replacements already elsewhere in the sequence are dropped rather than
+ * duplicated; a routine cannot list the same machine twice.
+ */
+export function replaceInSequence(
+  machineIds: readonly string[],
+  target: string,
+  replacements: readonly string[],
+): string[] {
+  const ids = normalizeIds(machineIds);
+  const from = canonicalMachineId(target);
+  const at = ids.indexOf(from);
+  if (at === -1) return ids;
+
+  const seen = new Set<string>();
+  const incoming = normalizeIds(replacements).filter((m) => {
+    if (seen.has(m)) return false;
+    seen.add(m);
+    return m === from || !ids.includes(m);
+  });
+
+  return [...ids.slice(0, at), ...incoming, ...ids.slice(at + 1)];
+}
+
 /* ────────────────────────────────────────────────────────────────────────
    Labels
    ──────────────────────────────────────────────────────────────────────── */
