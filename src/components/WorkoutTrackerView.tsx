@@ -20,6 +20,8 @@ import {
   ClipboardPenLine,
   Wrench,
   TriangleAlert,
+  HeartPulse,
+  X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -112,6 +114,13 @@ import {
 import { ActiveSessionTimer } from "./ActiveSessionTimer";
 import { SessionRoutineManagerModal } from "./SessionRoutineManagerModal";
 import { MachineSheet } from "../features/equipment/MachineSheet";
+/* Lazy, and the reason is measurable: the assessment panel is a 162 kB
+   chunk (50 kB gzipped) that most sessions never open. A static import
+   would put it on the critical path of the one screen a trainer opens
+   forty times a day, to pay for a panel they open once a quarter. */
+const ClientCheckInPanel = React.lazy(() =>
+  import("./journal/ClientCheckInPanel").then((m) => ({ default: m.ClientCheckInPanel })),
+);
 import { SessionJournalSidebar } from "./journal/SessionJournalSidebar";
 import { BriefingScreen } from "./BriefingScreen";
 import { VictoryHUDScreen } from "./VictoryHUDScreen";
@@ -1007,6 +1016,9 @@ export function WorkoutTrackerView({
   // there is now one sheet: it used to be two (settings, notes) and a
   // trainer had to know which of two targets to hit.
   const [sheetMachineId, setSheetMachineId] = useState<string | null>(null);
+  // The 90-day assessment, opened mid-session. See the panel at the bottom
+  // of this file for why it is a slide-over and not a screen.
+  const [isShowingAssessment, setIsShowingAssessment] = useState(false);
   const [editingWeightMachineId, setEditingWeightMachineId] = useState<
     string | null
   >(null);
@@ -2930,6 +2942,23 @@ export function WorkoutTrackerView({
             <MessageSquare className="w-3 h-3 text-cta shrink-0 fill-current" />
             <span className="hidden sm:inline">Notes</span>
           </Button>
+          {/* The 90-day assessment, reachable without ending the session.
+              A trainer has about ninety seconds while a client works the
+              lumbar machine, and what they want to do with it is record the
+              one thing the client just said. Before this, the assessment
+              lived on a full-page wizard reached from the profile -- so the
+              thing they had just heard got remembered until after the
+              session, which means it got lost. */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsShowingAssessment(true)}
+            title="Add to the 90-day assessment without leaving the session"
+            className="border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-surface-1 h-8 px-2 sm:px-2.5 rounded-lg text-[11px] flex items-center gap-1 shrink-0"
+          >
+            <HeartPulse className="w-3 h-3 text-cta shrink-0" />
+            <span className="hidden sm:inline">Assessment</span>
+          </Button>
           {/* Routine editing used to sit here, between Notes and Discard.
               It acts on the machine list, so it moved down to the grid rail
               that sits directly on top of that list -- and moving it also
@@ -3541,6 +3570,80 @@ export function WorkoutTrackerView({
           totalCount={activeMachineIds.length}
         />
       )}
+
+      {/* THE ASSESSMENT SLIDE-OVER.
+
+          Same component the Journal tab uses -- ClientCheckInPanel over a
+          Draft check-in that persists between sessions -- so a trainer can
+          answer one topic here, another next week, and finalise it when the
+          90 days are up. It autosaves per edit, so there is nothing to
+          submit and nothing to lose by closing it.
+
+          Deliberately NOT the full QuickCheckInDialog: that one takes the
+          whole screen and saves as Finalized, which ends the assessment. A
+          session is a stream of small observations, not a sitting.
+
+          A slide-over rather than a modal because the session has to stay
+          visible behind it: the timer is running, the client is on a
+          machine, and covering that up is what makes a trainer close the
+          thing without writing anything. */}
+      <AnimatePresence>
+        {isShowingAssessment && selectedClient && (
+          <div className="fixed inset-0 z-[100] flex justify-end overflow-hidden">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsShowingAssessment(false)}
+              className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="relative flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-slate-50 shadow-2xl dark:border-slate-800 dark:bg-slate-950"
+              role="dialog"
+              aria-label="90-day assessment"
+            >
+              <div className="flex shrink-0 items-center justify-between border-b border-slate-200 p-5 dark:border-slate-800">
+                <div className="flex flex-col">
+                  <h2 className="flex items-center gap-2 text-xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">
+                    <HeartPulse className="h-5 w-5 text-orange-500" /> Assessment
+                  </h2>
+                  <p className="mt-1 text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                    Saves as you type · session keeps running
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsShowingAssessment(false)}
+                  aria-label="Close assessment"
+                  className="rounded-full hover:bg-white dark:hover:bg-surface-1/10"
+                >
+                  <X className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                </Button>
+              </div>
+              <div className="custom-scrollbar flex-1 overflow-y-auto p-5">
+                <React.Suspense
+                  fallback={
+                    <div className="flex items-center justify-center py-16 text-xs font-bold uppercase tracking-widest text-slate-400">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading assessment…
+                    </div>
+                  }
+                >
+                  <ClientCheckInPanel
+                    client={selectedClient}
+                    trainer={authTrainer || null}
+                    machines={machines}
+                  />
+                </React.Suspense>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isShowingSessionNotes && currentSession && clientId && (
