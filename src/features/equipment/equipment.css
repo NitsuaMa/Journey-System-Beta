@@ -498,13 +498,17 @@
 
 /* ---------- History (first / times / last / progression) ------------- */
 
+/* Five stats now, and auto-fit rather than a fixed count: the fixed four
+   became two hard-wrapped columns the moment the iPad turned, and adding a
+   fifth to a two-column grid leaves one orphan. Let the row decide how many
+   fit — 150px is the width at which "Avg. time under tension" stops
+   truncating. */
 .eq-use {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
   margin: 0;
 }
-@media (max-width: 1279px) { .eq-use { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .eq-use__stat {
   min-width: 0;
   padding: 10px 12px;

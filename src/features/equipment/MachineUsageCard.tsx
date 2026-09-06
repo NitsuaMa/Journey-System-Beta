@@ -81,6 +81,24 @@ export const MachineUsageCard = memo(function MachineUsageCard({ machine }: { ma
               <dd className="eq-use__value">{day(u.lastPerformed)}</dd>
               <dd className="eq-use__sub">{ago(u.lastPerformed) ?? ""}</dd>
             </div>
+            <div className="eq-use__stat">
+              <dt className="eq-rx__label">Avg. time under tension</dt>
+              <dd className="eq-use__value">
+                {u.averageTutSeconds === null ? (
+                  "—"
+                ) : (
+                  <>
+                    {u.averageTutSeconds}
+                    <small>sec / set</small>
+                  </>
+                )}
+              </dd>
+              <dd className="eq-use__sub">
+                {u.tutSamples > 0
+                  ? `across ${u.tutSamples} timed set${u.tutSamples === 1 ? "" : "s"}`
+                  : "no set has been timed yet"}
+              </dd>
+            </div>
             <div className="eq-use__stat eq-use__stat--prog">
               <dt className="eq-rx__label">Progression</dt>
               <dd className={`eq-use__value ${progressClass}`}>{pct === null ? "—" : `${pct > 0 ? "+" : ""}${pct}%`}</dd>
