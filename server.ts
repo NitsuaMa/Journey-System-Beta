@@ -532,6 +532,90 @@ async function startServer() {
     }
   });
 
+  /**
+   * One staff member's photo, from GET /staff/{staffId}/imageurl.
+   *
+   * Deliberately NOT how photos normally arrive. /api/mindbody/staff above
+   * already returns ImageUrl for the whole roster in a single call, and that
+   * is what the trainer pickers use. This endpoint is one round trip per
+   * person, so it exists only for a deliberate "refresh this photo" press --
+   * the Public API is metered and the bulk call is free.
+   */
+  app.post("/api/mindbody/staff-image", async (req, res) => {
+    try {
+      const mindbodyApiKey = process.env.MINDBODY_API_KEY;
+      if (!mindbodyApiKey) {
+        return res
+          .status(500)
+          .json({ error: "MINDBODY_API_KEY environment variable is not set." });
+      }
+
+      const siteId = req.body?.siteId;
+      const staffId = req.body?.staffId;
+      if (!siteId) return res.status(400).json({ error: "siteId is required" });
+      if (!staffId) return res.status(400).json({ error: "staffId is required" });
+
+      let userToken: string | undefined;
+      try {
+        userToken = await getMindbodyToken(String(siteId));
+      } catch (tokenErr: any) {
+        console.warn(
+          "Could not get Mindbody token for staff image, proceeding without:",
+          tokenErr.message,
+        );
+      }
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Api-Key": mindbodyApiKey,
+        SiteId: String(siteId),
+      };
+      if (userToken) headers["Authorization"] = userToken;
+
+      const apiResponse = await fetch(
+        `https://api.mindbodyonline.com/public/v6/staff/${encodeURIComponent(String(staffId))}/imageurl`,
+        { method: "GET", headers },
+      );
+
+      // A staff member with no photo is the NORMAL answer here, not an error.
+      if (apiResponse.status === 404) {
+        return res.json({ imageUrl: null });
+      }
+
+      if (!apiResponse.ok) {
+        const errorText = await apiResponse.text();
+        console.error(
+          "Mindbody Staff Image Error:",
+          apiResponse.status,
+          errorText,
+        );
+        return res
+          .status(apiResponse.status)
+          .json({ error: `Mindbody API Error: ${errorText.slice(0, 200)}` });
+      }
+
+      const data: any = await apiResponse.json().catch(() => null);
+      const raw =
+        (typeof data === "string" ? data : undefined) ??
+        data?.ImageUrl ??
+        data?.imageUrl ??
+        data?.Staff?.ImageUrl ??
+        null;
+
+      // Only https survives. Anything else would be stored and then render as
+      // a broken avatar until somebody noticed.
+      const imageUrl =
+        typeof raw === "string" && /^https:\/\/\S+$/i.test(raw.trim())
+          ? raw.trim()
+          : null;
+
+      res.json({ imageUrl });
+    } catch (e: any) {
+      console.error("Fetch staff image error:", e);
+      res.status(500).json({ error: e.message || "Failed to fetch staff image" });
+    }
+  });
+
   app.post("/api/mindbody/locations", async (req, res) => {
     try {
       const mindbodyApiKey = process.env.MINDBODY_API_KEY;

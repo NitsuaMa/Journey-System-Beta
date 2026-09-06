@@ -10,6 +10,10 @@ export {
   recalcTrainerWindows,
   backfillTrainerRollups,
 } from "./trainerRollups";
+export {
+  syncMindbodyStaffImages,
+  refreshMindbodyStaffImage,
+} from "./mindbody/staffImage";
 
 admin.initializeApp();
 const db = getFirestore("ai-studio-32cbbdcc-6e08-4770-9665-867c68878efa");
