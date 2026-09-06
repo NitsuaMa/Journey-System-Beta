@@ -1009,6 +1009,39 @@ export function WorkoutTrackerView({
   const lastMachineLoggedAt = React.useRef<number>(Date.now());
   const pauseStartTime = React.useRef<number | null>(null);
   const currentSegmentPauseDuration = React.useRef<number>(0);
+
+  /**
+   * When the trainer arrived at each machine.
+   *
+   * Time under tension used to come off ONE shared clock: whichever machine
+   * was first in `activeMachineIds` with a finished-but-untimed set consumed
+   * the whole elapsed window, and the clock reset. Attribution was therefore
+   * decided by array position, which is exactly the thing a trainer now
+   * changes mid-session — so reordering silently moved a machine's minutes
+   * onto its neighbour, and going back to correct an earlier set charged it
+   * with all the time spent elsewhere in between.
+   *
+   * A clock per machine, started when the trainer moves to it, removes the
+   * dependency on order entirely. Nothing about the measurement changes; only
+   * the question of whose time it is.
+   */
+  const machineStartedAt = React.useRef<Record<string, number>>({});
+
+  /** Mark a machine as being worked, unless it already is. */
+  const markMachineStarted = React.useCallback((machineId: string) => {
+    if (!machineId) return;
+    if (machineStartedAt.current[machineId] === undefined) {
+      machineStartedAt.current[machineId] = Date.now();
+    }
+  }, []);
+
+  /** When this machine's set began. Falls back to the shared clock for a
+   *  machine completed without ever being focused or touched. */
+  const startedAtFor = React.useCallback(
+    (machineId: string) =>
+      machineStartedAt.current[machineId] ?? lastMachineLoggedAt.current,
+    [],
+  );
   const [isEditingRoutine, setIsEditingRoutine] = useState(false);
   const [showRoutinePicker, setShowRoutinePicker] = useState(false);
   // Which machine the unified sheet is open on. One piece of state, because
@@ -1179,13 +1212,13 @@ export function WorkoutTrackerView({
         ) {
           const manualSeconds = logL?.seconds ? parseFloat(logL.seconds) : 0;
           const rawTimeDiff = Math.floor(
-            (Date.now() - lastMachineLoggedAt.current) / 1000,
+            (Date.now() - startedAtFor(mId)) / 1000,
           );
           const computedTimeDiff = Math.max(
             0,
             Math.floor(
               (Date.now() -
-                lastMachineLoggedAt.current -
+                startedAtFor(mId) -
                 currentSegmentPauseDuration.current) /
                 1000,
             ),
@@ -1212,6 +1245,7 @@ export function WorkoutTrackerView({
             },
             "Left",
           );
+          delete machineStartedAt.current[mId];
           lastMachineLoggedAt.current = Date.now();
           currentSegmentPauseDuration.current = 0;
           didUpdate = true;
@@ -1224,13 +1258,13 @@ export function WorkoutTrackerView({
         ) {
           const manualSeconds = logR?.seconds ? parseFloat(logR.seconds) : 0;
           const rawTimeDiff = Math.floor(
-            (Date.now() - lastMachineLoggedAt.current) / 1000,
+            (Date.now() - startedAtFor(mId)) / 1000,
           );
           const computedTimeDiff = Math.max(
             0,
             Math.floor(
               (Date.now() -
-                lastMachineLoggedAt.current -
+                startedAtFor(mId) -
                 currentSegmentPauseDuration.current) /
                 1000,
             ),
@@ -1257,6 +1291,7 @@ export function WorkoutTrackerView({
             },
             "Right",
           );
+          delete machineStartedAt.current[mId];
           lastMachineLoggedAt.current = Date.now();
           currentSegmentPauseDuration.current = 0;
           didUpdate = true;
@@ -1271,13 +1306,13 @@ export function WorkoutTrackerView({
         ) {
           const manualSeconds = log?.seconds ? parseFloat(log.seconds) : 0;
           const rawTimeDiff = Math.floor(
-            (Date.now() - lastMachineLoggedAt.current) / 1000,
+            (Date.now() - startedAtFor(mId)) / 1000,
           );
           const computedTimeDiff = Math.max(
             0,
             Math.floor(
               (Date.now() -
-                lastMachineLoggedAt.current -
+                startedAtFor(mId) -
                 currentSegmentPauseDuration.current) /
                 1000,
             ),
@@ -1299,6 +1334,7 @@ export function WorkoutTrackerView({
             machineDurationSeconds: timeDiff,
             ...(avgTime !== undefined && { averageTimePerRep: avgTime }),
           });
+          delete machineStartedAt.current[mId];
           lastMachineLoggedAt.current = Date.now();
           currentSegmentPauseDuration.current = 0;
           didUpdate = true;
@@ -2690,6 +2726,14 @@ export function WorkoutTrackerView({
       ? focusMachineOverride
       : firstIncompleteMachineId;
 
+  /* Arriving at a machine starts its clock. Focus only moves on a deliberate
+     act now — Next, a tap on a Today cell, a logged TSC — so this is a real
+     signal about where the trainer is standing, which it was not while focus
+     advanced by itself. */
+  useEffect(() => {
+    if (gridFocusMachineId) markMachineStarted(gridFocusMachineId);
+  }, [gridFocusMachineId, markMachineStarted]);
+
   /* --- what the Now bar reads. All derived from state that already
      existed for the grid; the bar adds no source of truth of its own. --- */
   const gridFocusRow = useMemo(
@@ -2716,6 +2760,9 @@ export function WorkoutTrackerView({
 
   /** Grid → logs. Mirrors what the old entry dialog wrote, field by field. */
   const handleGridLiveChange = (machineId: string, patch: Partial<LiveSet>) => {
+    /* A trainer can log a machine without ever focusing it — tapping straight
+       into its cell in the grid. First touch counts as arrival. */
+    markMachineStarted(machineId);
     const sessionId = currentSession?.id;
     if (!sessionId) return;
     const row = gridRows.find((r) => r.machine.id === machineId);
