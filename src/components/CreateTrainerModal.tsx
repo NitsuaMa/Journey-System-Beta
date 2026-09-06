@@ -46,7 +46,7 @@ export function CreateTrainerModal({ isOpen, onOpenChange, onSubmit }: Props) {
   const [mindbodyStaffId, setMindbodyStaffId] = useState("");
   const [fetchingStaff, setFetchingStaff] = useState(false);
   const [staffOptions, setStaffOptions] = useState<
-    { id: string; fullName: string; email: string }[]
+    { id: string; fullName: string; email: string; imageUrl?: string | null }[]
   >([]);
 
   const handleFetchStaff = async () => {
@@ -110,6 +110,10 @@ export function CreateTrainerModal({ isOpen, onOpenChange, onSubmit }: Props) {
       accessibleStudioIds: [primaryHomeStudioId],
       systemStatus: "active",
       mindbodyStaffId: mindbodyStaffId.trim() || "",
+      // Whatever the bulk staff call already returned. No extra API call, and
+      // the trainer has an avatar from their first sign-in.
+      photoUrl:
+        staffOptions.find((s) => s.id === mindbodyStaffId.trim())?.imageUrl || null,
       order: Date.now(),
     } as any;
 
@@ -279,9 +283,21 @@ export function CreateTrainerModal({ isOpen, onOpenChange, onSubmit }: Props) {
                       value={s.id}
                       className="font-bold py-2.5 px-3 focus:bg-slate-100 dark:focus:bg-slate-800 rounded-xl cursor-pointer"
                     >
-                      <div className="flex items-center justify-between w-full gap-4 text-xs sm:text-sm">
-                        <span className="font-extrabold text-slate-900 dark:text-white truncate">
-                          {s.fullName}
+                      <div className="flex items-center justify-between w-full gap-3 text-xs sm:text-sm">
+                        <span className="flex items-center gap-2.5 min-w-0">
+                          <span className="relative w-7 h-7 rounded-lg overflow-hidden shrink-0 grid place-items-center bg-slate-100 dark:bg-slate-800 text-[10px] font-black text-slate-500">
+                            {s.fullName?.[0] || "?"}
+                            {s.imageUrl && (
+                              <img
+                                src={s.imageUrl}
+                                alt=""
+                                className="absolute inset-0 w-full h-full object-cover"
+                              />
+                            )}
+                          </span>
+                          <span className="font-extrabold text-slate-900 dark:text-white truncate">
+                            {s.fullName}
+                          </span>
                         </span>
                         <span className="font-mono text-xs text-[#F06C22] font-bold shrink-0 bg-[#F06C22]/10 px-2 py-0.5 rounded-md border border-[#F06C22]/20">
                           ID: {s.id}
