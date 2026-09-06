@@ -646,22 +646,42 @@ button.jg-stat__btn:active { background: var(--jg-surface-3); }
 .jg-cell__r .jg-tut { font-weight: 500; color: var(--jg-ink-muted); }
 .jg-cell__empty { color: var(--jg-ink-faint); font-size: 12px; font-weight: 500; }
 
-/* ---- quality: the inroad, carried by the edge ------------------------ *
-   The history grid used to hang a ★ or a ◐ in the corner of every rated
-   cell. At four columns that read as an annotation; at eight it is eight
-   glyphs per row competing with the numbers the row exists to show. So the
-   mark is the cell's own left edge instead, and it says the same thing the
-   glyph does — whether the line held:
+/* ---- quality: the cell's own fill ------------------------------------ *
+   The fill IS the rating now, and it is the only thing in the grid allowed
+   to use these three colours:
 
-     q3  max strength   a SOLID 3px edge. Tension held the whole way.
-     q1  poor quality   the same edge, BROKEN into segments, plus the hatch.
-     q2  completed      no edge at all. A normal set should read calm.
+     q3  max strength   GREEN  + a gold ★ in the corner
+     q1  needs work     RED    + a red kaizen ◯ in the corner + a hatch
+     q2  completed      GREY   + nothing. A normal set should read calm.
 
-   Continuity, not colour, is the carrier — so it survives greyscale, print
-   and a colour-blind trainer, and the numbers keep the cell to themselves. */
+   Two rules keep this honest. First, nothing else paints a cell — a load
+   increase used to tint it green, and that is exactly the collision this
+   revision exists to remove. Second, green-vs-red is the one pair a
+   red-green colour-blind trainer cannot separate, so the two rated states
+   also differ in SHAPE (★ vs ◯) and in TEXTURE (flat vs hatched). Turn the
+   screen greyscale and the grid still reads.
+
+   The mark is small and lives in the corner the numbers do not use, so it
+   annotates the cell instead of competing with it.                        */
 .jg-cell--q2 { background: var(--jg-q-done-fill); }
 
 .jg-cell--q3 { background: var(--jg-q-max-fill); border-left-color: var(--jg-q-max-edge); }
+
+/* The corner mark. Absolute so it never enters the flex flow and can never
+   push the two numbers off centre, and pointer-events:none so it can never
+   swallow a tap meant for the cell. */
+.jg-cell__mark {
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  line-height: 0;
+  pointer-events: none;
+}
+.jg-cell__mark--q3 { color: var(--jg-q-star); }
+.jg-cell__mark--q1 { color: var(--jg-q-poor); }
+/* Under ~36px rows there is no corner to spare — the fill and the hatch
+   carry it alone, and the row is single-line anyway. */
+.jg[data-dense="line"] .jg-cell__mark { display: none; }
 
 .jg-cell--q1 {
   background-color: var(--jg-q-poor-fill);
@@ -692,15 +712,21 @@ button.jg-stat__btn:active { background: var(--jg-surface-3); }
 }
 
 /* ---- load movement --------------------------------------------------- *
-   Marker 4. Every change used to be one grey arrow, so "two more reps" and
-   "two more pounds" looked identical — and under continuous tension they
-   are not remotely the same event. The load is the thing being driven up;
-   reps are the by-product of how deep a given load took them.
+   Every change used to be one grey arrow, so "two more reps" and "two more
+   pounds" looked identical — and under continuous tension they are not
+   remotely the same event. The load is the thing being driven up; reps are
+   the by-product of how deep a given load took them. So a load change is a
+   signed NUMBER beside the weight.
 
-   So a load change is a signed NUMBER beside the weight, not an arrow, and
-   an increase is the loudest thing in the row: emerald digits, a matching
-   2px top edge on the cell, and the weight itself in the gain colour. The
-   left edge still belongs to quality — the two never collide.
+   What changed here: an increase used to be emerald digits, an emerald top
+   edge AND an emerald cell tint. Green is quality's colour now, so all
+   three had to go. The increase is blue digits with a ▲ and nothing else —
+   text-level, exactly as asked, so a load change annotates a cell without
+   ever restating what the cell's rating already said.
+
+   The ▲/▼ is load-bearing, not decoration: blue elsewhere in this grid
+   means "you can tap this", and a bare blue "+2" would read as a control.
+   A number wearing an arrow reads as a measurement.
 
    A drop stays in the neutral ink. Dropping the pin is a coaching call,
    not a failure, and colouring it like one would be a lie the grid tells
@@ -713,15 +739,10 @@ button.jg-stat__btn:active { background: var(--jg-surface-3); }
   letter-spacing: -0.02em;
   vertical-align: 1px;
 }
-.jg-delta--gain { color: var(--jg-gain); }
+.jg-delta--gain { color: var(--jg-delta-up); }
 .jg-delta--drop { color: var(--jg-drop); font-weight: 700; }
-
-.jg-cell.is-gain { box-shadow: inset 0 2px 0 var(--jg-gain-edge); }
-.jg-cell.is-gain .jg-cell__w { color: var(--jg-gain); font-weight: 800; }
-/* A cell with no quality fill of its own gets a whisper of the gain tint,
-   so a PR is findable by scanning colour alone. Quality fills win: they
-   are the clinical record, this is the celebration. */
-.jg-cell.is-gain:not(.jg-cell--q1):not(.jg-cell--q3) { background: var(--jg-gain-fill); }
+/* The arrow rides at 0.85em so "▲2" stays one optical unit at 9.5px. */
+.jg-delta__arrow { font-size: 0.85em; margin-right: 0.5px; }
 
 /* trend glyph next to reps — reps only, and only when the load held. */
 .jg-trend {
@@ -1013,7 +1034,7 @@ button.jg-stat__btn:active { background: var(--jg-surface-3); }
 .jg-nb__expect em { font-style: normal; font-weight: 750; color: var(--jg-ink); }
 .jg-nb__readout { display: block; color: var(--jg-ink-faint); font-weight: 600; }
 .jg-nb__mark { display: inline-flex; vertical-align: -1px; margin-left: 3px; line-height: 0; }
-.jg-nb__mark--q3 { color: var(--jg-q-max-text); }
+.jg-nb__mark--q3 { color: var(--jg-q-star); }
 .jg-nb__mark--q1 { color: var(--jg-q-poor-text); }
 
 /* Portrait: settings drop to their own scrolling line under the name. */
@@ -1165,7 +1186,9 @@ button.jg-stat__btn:active { background: var(--jg-surface-3); }
   touch-action: manipulation;
 }
 .jg-nb__qbtn[data-q="1"].is-on { background: var(--jg-q-poor-fill); border-color: var(--jg-q-poor); color: var(--jg-q-poor-text); }
-.jg-nb__qbtn[data-q="3"].is-on { background: var(--jg-q-max-fill); border-color: var(--jg-q-max-edge); color: var(--jg-q-max-text); }
+/* The star is gold on the button too — the trainer taps the same mark they
+   will read back in the grid tomorrow. */
+.jg-nb__qbtn[data-q="3"].is-on { background: var(--jg-q-max-fill); border-color: var(--jg-q-max-edge); color: var(--jg-q-star); }
 
 /* timer */
 .jg-nb__timer {
@@ -1474,7 +1497,7 @@ button.jg-stat__btn:active { background: var(--jg-surface-3); }
 .jg-legend__swatch--q2 { background: var(--jg-q-done-fill); border-color: var(--jg-q-done-fill); }
 .jg-legend__swatch--q3 { background: var(--jg-q-max-fill); border-color: var(--jg-q-max-edge); }
 .jg-legend__mark { display: inline-flex; line-height: 0; }
-.jg-legend__mark--q3 { color: var(--jg-q-max-text); }
+.jg-legend__mark--q3 { color: var(--jg-q-star); }
 .jg-legend__mark--q1 { color: var(--jg-q-poor-text); }
 .jg-legend__gloss {
   font-style: normal;
