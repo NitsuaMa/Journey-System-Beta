@@ -219,7 +219,7 @@ export function AdminDashboardView({
   return (
     <div className="max-w-7xl mx-auto p-3 sm:p-6 animate-fade-in text-slate-900 dark:text-slate-100 flex flex-col lg:flex-row gap-4 lg:gap-8 items-start">
       {/* ───── Sidebar (iPad landscape and up) ───── */}
-      <aside className="hidden lg:flex w-52 xl:w-56 shrink-0 flex-col sticky top-0 self-start border-r border-slate-200 dark:border-slate-800 pr-2 min-h-[60vh]">
+      <aside className="hidden lg:flex w-52 xl:w-56 shrink-0 flex-col sticky top-0 self-start border-r border-slate-200 dark:border-slate-800 pr-2 min-h-[60dvh]">
         {groups
           .filter((g) => g.tier === "primary")
           .map((group, gIdx) => (

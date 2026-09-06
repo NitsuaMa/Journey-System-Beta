@@ -21,6 +21,15 @@
   flex-direction: column;
   min-height: 0;
   height: 100%;
+  /* A flex or grid item's default `min-width: auto` refuses to shrink below
+     its content's minimum. shadcn's DialogContent is a grid, so inside a
+     narrow dialog the widest un-shrinkable thing in here — a warning title
+     set `nowrap` — pushed the whole builder past the dialog's right edge and
+     the overflow was simply clipped: rows cut in half, the action bar showing
+     two of its three buttons. Nothing about the layout was wrong; it was
+     never allowed to compress. */
+  min-width: 0;
+  max-width: 100%;
   /* Also grow as a flex child. Callers wrap the builder in `flex-1 min-h-0`
      with no explicit height, where a percentage height is indefinite and the
      builder ends short of the bottom — which is exactly the dead-space-under-
@@ -44,6 +53,10 @@
 }
 
 .rb-head__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 1 auto;
   font-family: var(--rb-font-display);
   font-style: italic;
   font-weight: 800;
@@ -184,6 +197,7 @@
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   padding: 0.5rem;
@@ -379,7 +393,18 @@
 .rb-warn__toggle:focus-visible { outline: 2px solid var(--rb-focus-ring); outline-offset: 1px; border-radius: 6px; }
 
 .rb-warn__icon { flex: 0 0 auto; }
-.rb-warn__title { font-weight: 700; color: inherit; white-space: nowrap; flex: 0 0 auto; }
+/* Shrinkable, not fixed. "Quad movement directly into Lumbar or Abdominals"
+   is 350px of un-wrappable text; at `flex: 0 0 auto` it set the minimum width
+   of every dialog the builder is ever placed in. */
+.rb-warn__title {
+  font-weight: 700;
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 1 auto;
+  min-width: 4rem;
+}
 .rb-warn__pair {
   color: var(--rb-ink-2);
   min-width: 0;
@@ -396,7 +421,15 @@
   .rb-warn__pair { display: none; }
 }
 
-.rb-warn__quickfix { flex: 0 0 auto; }
+.rb-warn__quickfix {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 55%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: inline-block;
+}
 
 .rb-warn__detail { padding: 0 0.55rem 0.5rem 1.45rem; }
 .rb-warn__why { color: var(--rb-ink-2); margin: 0 0 0.25rem; }
@@ -693,7 +726,7 @@
 .rb-bar__btn--warn { color: var(--rb-avoid); border-color: var(--rb-avoid-edge); background: var(--rb-avoid-fill); }
 .rb-bar__btn:focus-visible { outline: 2px solid var(--rb-focus-ring); outline-offset: 1px; }
 
-.rb-sheet { display: flex; flex-direction: column; gap: 0.6rem; min-height: 0; max-height: 70vh; }
+.rb-sheet { display: flex; flex-direction: column; gap: 0.6rem; min-height: 0; max-height: 70dvh; }
 
 @media (prefers-reduced-motion: reduce) {
   .rb-row, .rb-sug, .rb-pick__item { transition: none !important; }

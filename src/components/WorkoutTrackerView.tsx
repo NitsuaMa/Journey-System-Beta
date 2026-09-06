@@ -172,7 +172,7 @@ function ClientSelectionDialog({
           </div>
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto px-6 pb-6 pt-2 space-y-2">
+        <div className="max-h-[60dvh] overflow-y-auto px-6 pb-6 pt-2 space-y-2">
           {filtered.length > 0 ? (
             filtered.map((client) => (
               <button
@@ -334,7 +334,7 @@ function PerformanceEntryDialog({
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-100 rounded-[32px] p-0 overflow-hidden border-slate-200 dark:border-slate-800 bg-white dark:bg-bg-dark shadow-2xl dark:shadow-none flex flex-col h-full max-h-[85vh] sm:max-h-150">
+      <DialogContent className="sm:max-w-100 rounded-[32px] p-0 overflow-hidden border-slate-200 dark:border-slate-800 bg-white dark:bg-bg-dark shadow-2xl dark:shadow-none flex flex-col h-full max-h-[85dvh] sm:max-h-150">
         {/* Header */}
         <div className="bg-white dark:bg-bg-dark p-4 text-slate-900 dark:text-white relative overflow-hidden border-b border-slate-200 dark:border-slate-800 shrink-0">
           <div className="absolute top-0 right-0 p-8 opacity-5 rotate-12">
@@ -743,7 +743,7 @@ function ExerciseHistoryDialog({
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-125 h-[80vh] flex flex-col rounded-3xl p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-125 h-[80dvh] flex flex-col rounded-3xl p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-2">
           <DialogTitle className="text-2xl font-black uppercase italic tracking-tight flex items-center gap-2">
             <History className="w-6 h-6 text-primary" />

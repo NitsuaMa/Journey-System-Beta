@@ -965,7 +965,7 @@ export function RetentionDashboardView({
 
       {/* CUSTOM STUDIO RETENTION SETTINGS DIALOG */}
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="max-w-105 bg-bg-dark border-div-d rounded-3xl p-6 overflow-y-auto max-h-[90vh]">
+        <DialogContent className="max-w-105 bg-bg-dark border-div-d rounded-3xl p-6 overflow-y-auto max-h-[90dvh]">
           <DialogHeader>
             <DialogTitle className="font-display italic font-bold uppercase text-[24px] text-ink-d1">
               Retention Alerts

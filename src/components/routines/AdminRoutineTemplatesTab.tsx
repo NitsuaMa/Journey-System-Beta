@@ -370,7 +370,7 @@ export function AdminRoutineTemplatesTab({
       )}
 
       <Dialog open={!!draft} onOpenChange={(o) => !o && close()}>
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="uppercase tracking-tight">
               {editingId ? `Edit ${draft?.name || "template"}` : "New template"}

@@ -79,7 +79,7 @@ export function SetupPromptDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-[560px] max-h-[86vh] overflow-y-auto p-0 border-0 bg-transparent shadow-none">
+      <DialogContent className="sm:max-w-[560px] max-h-[86dvh] overflow-y-auto p-0 border-0 bg-transparent shadow-none">
         <div className="eq eq-prompt">
           <header className="eq-prompt__head">
             <span className="eq-prompt__kicker">First time on this machine</span>

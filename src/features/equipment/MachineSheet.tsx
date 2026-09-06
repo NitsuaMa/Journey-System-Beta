@@ -134,7 +134,7 @@ export function MachineSheet({
       }}
     >
       {/* Overrides the centred-dialog geometry into a bottom sheet. Capped
-          at 88vh so the sheet never becomes the whole screen — seeing a
+          at 88dvh so the sheet never becomes the whole screen — seeing a
           sliver of the grid behind it is what tells a trainer the session
           is still running underneath. */}
       <DialogContent

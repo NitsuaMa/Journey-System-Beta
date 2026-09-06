@@ -160,7 +160,7 @@ export function MachineSettingsDashboardModal({
     >
       <DialogContent
         showCloseButton={false}
-        className="w-[92vw] sm:w-[85vw] max-w-2xl max-h-[85vh] sm:max-h-[90vh] overflow-y-auto no-scrollbar bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl sm:rounded-3xl p-0 flex flex-col transition-colors"
+        className="w-[92vw] sm:w-[85vw] max-w-2xl max-h-[85dvh] sm:max-h-[90dvh] overflow-y-auto no-scrollbar bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl sm:rounded-3xl p-0 flex flex-col transition-colors"
       >
         {/* Hero Header */}
         <div className="bg-slate-50 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800/80 p-5 sm:p-6 flex flex-col justify-between relative">

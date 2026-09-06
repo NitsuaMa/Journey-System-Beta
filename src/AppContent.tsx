@@ -188,7 +188,7 @@ import {
 
 // Shown in the content area while a lazy view downloads on first visit.
 const ViewLoader = () => (
-  <div className="flex flex-1 items-center justify-center min-h-[40vh]">
+  <div className="flex flex-1 items-center justify-center min-h-[40dvh]">
     <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
   </div>
 );
@@ -1348,7 +1348,7 @@ export default function AppContent({
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="w-full max-w-lg z-10 flex flex-col items-center justify-center min-h-[60vh] mt-[-5vh]"
+          className="w-full max-w-lg z-10 flex flex-col items-center justify-center min-h-[60dvh] mt-[-5dvh]"
         >
           <div className="flex flex-col items-center text-center">
             <motion.div
@@ -2245,7 +2245,7 @@ export default function AppContent({
         open={!!infoMachineId}
         onOpenChange={(open) => !open && setInfoMachineId(null)}
       >
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-[32px] p-0 border-none shadow-2xl dark:shadow-none">
+        <DialogContent className="max-w-3xl max-h-[90dvh] overflow-y-auto rounded-[32px] p-0 border-none shadow-2xl dark:shadow-none">
           {infoMachine && (
             <>
               <DialogHeader className="p-8 bg-white dark:bg-bg-dark border-b relative">
@@ -2693,7 +2693,7 @@ export default function AppContent({
               </div>
             </div>
           </DialogHeader>
-          <div className="p-6 max-h-[60vh] overflow-y-auto">
+          <div className="p-6 max-h-[60dvh] overflow-y-auto">
             {newClientsThisMonth.length > 0 ? (
               <div className="grid gap-3">
                 {newClientsThisMonth.map((client) => (
@@ -2749,7 +2749,7 @@ export default function AppContent({
         open={isReorderingTrainers}
         onOpenChange={setIsReorderingTrainers}
       >
-        <DialogContent className="max-w-md rounded-[32px] p-0 overflow-hidden border-none shadow-2xl dark:shadow-none max-h-[85vh] flex flex-col">
+        <DialogContent className="max-w-md rounded-[32px] p-0 overflow-hidden border-none shadow-2xl dark:shadow-none max-h-[85dvh] flex flex-col">
           <DialogHeader className="p-8 bg-white dark:bg-bg-dark border-b shrink-0">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-primary/10 rounded-2xl">

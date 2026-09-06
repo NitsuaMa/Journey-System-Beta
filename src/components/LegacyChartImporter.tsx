@@ -1000,7 +1000,7 @@ export function LegacyChartImporter({ clients, machines, trainers, initialClient
                 <motion.div 
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="p-4 space-y-6 overflow-y-auto max-h-[75vh] scrollbar-thin scrollbar-thumb-slate-700"
+                  className="p-4 space-y-6 overflow-y-auto max-h-[75dvh] scrollbar-thin scrollbar-thumb-slate-700"
                 >
                   {/* Macro Summary Panel */}
                   <div className="bg-[#0A2E46] border border-[#F06C22]/30 rounded-xl p-4 mb-4 flex items-center justify-between shadow-[0_0_20px_rgba(240,108,34,0.05)]">

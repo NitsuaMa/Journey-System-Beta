@@ -740,7 +740,7 @@ export function ClientProgressReportView({
 
   if (mode === "selection") {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[80vh] p-6 space-y-12 max-w-2xl mx-auto text-center bg-[#0A2E46] rounded-[60px] my-12 border border-white/5 shadow-2xl">
+      <div className="flex flex-col items-center justify-center min-h-[80dvh] p-6 space-y-12 max-w-2xl mx-auto text-center bg-[#0A2E46] rounded-[60px] my-12 border border-white/5 shadow-2xl">
         <div className="space-y-4">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
