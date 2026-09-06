@@ -1,0 +1,178 @@
+/* ==========================================================================
+   Routine Builder — design tokens
+   --------------------------------------------------------------------------
+   Same two-layer scheme as the Equipment tab and Journey Grid: raw brand
+   pigment, then semantic names components actually use. Light on :root, dark
+   on .dark (the class ThemeProvider toggles) with [data-theme] and
+   prefers-color-scheme as fallbacks, so a page rendered before hydration is
+   never the wrong theme.
+
+   Contrast checked to WCAG 2.1 AA: body text >= 4.5:1, borders and non-text
+   UI >= 3:1. Ratios noted beside each value so a future edit can re-check.
+
+   ── One decision worth knowing before editing ──────────────────────────────
+   Severity here is deliberately NOT the Journey Grid's rep-quality palette.
+   On the grid, green means a set was max strength and crimson means it needs
+   work — those are judgements about a client's effort. In the builder the
+   same two colours would mean something entirely different (a rule is broken
+   / a routine is complete), on screens a trainer moves between within one
+   session. So:
+
+     avoid    -> plum   (--rb-avoid)     a rule the Academy says not to break
+     caution  -> amber  (--rb-caution)   permissible, but think about it
+     complete -> blue   (--rb-live)      coverage satisfied
+
+   Crimson appears nowhere in this feature. Green appears only on the coverage
+   strip, where it reads as "covered" and cannot be confused with rep quality
+   because no rep data is on screen.
+   ========================================================================== */
+
+:root {
+  --rb-bg:              #f1f5f8;   /* behind both panes                     */
+  --rb-surface:         #ffffff;   /* rows, cards                           */
+  --rb-surface-2:       #e8eef2;   /* headers, read-only chips              */
+  --rb-surface-3:       #dae1e6;   /* hover / pressed                       */
+  --rb-border:          #d3dadf;   /* hairlines                     1.4:1   */
+  --rb-border-strong:   #a9b2b9;   /* pane divider, focus            2.2:1  */
+
+  --rb-ink:             #121c23;   /* machine names                17.3:1   */
+  --rb-ink-2:           #3e4952;   /* secondary                     9.2:1   */
+  --rb-ink-muted:       #5b6770;   /* labels (brand slate)          5.8:1   */
+  --rb-ink-faint:       #848e95;   /* ghosts, em-dashes             3.3:1   */
+
+  /* Hero orange: the sequence position numbers and the primary action. */
+  --rb-hero:            #ef5302;
+  --rb-hero-text:       #bc2c00;   /* 6.0:1 on white                        */
+  --rb-hero-fill:       #fde7dc;
+  --rb-hero-on:         #ffffff;
+
+  /* Blue: anything actionable — add, fix, drag affordances, focus rings. */
+  --rb-live:            #0a548b;   /* 7.9:1 on white                        */
+  --rb-live-text:       #034a84;   /* 9.1:1 on white                        */
+  --rb-live-fill:       #e6eef3;
+  --rb-live-on:         #ffffff;
+
+  /* Green: a programming category this routine covers. */
+  --rb-ok:              #1c7a52;   /* 4.9:1 on white                        */
+  --rb-ok-fill:         #e3f1ea;
+
+  /* Plum: a rule the Academy says to avoid. Not red — see the note above. */
+  --rb-avoid:           #a2457e;   /* 5.7:1 on white                        */
+  --rb-avoid-fill:      #f4e9f0;
+  --rb-avoid-edge:      #c98fb3;   /* 3.0:1, for the rail beside a row      */
+
+  /* Amber: permissible but worth a thought. */
+  --rb-caution:         #8a5300;   /* 5.8:1 on white                        */
+  --rb-caution-fill:    #fbeedd;
+  --rb-caution-edge:    #d9a45c;   /* 2.1:1, decorative rail only           */
+
+  /* The anatomy figure. Matches BodyModel's own defaults so the figure and
+     the tokens cannot drift apart. */
+  --rb-muscle-primary:   #0a548b;
+  --rb-muscle-secondary: #6fb4e4;
+  --rb-muscle-base:      #9aa6ae;
+
+  --rb-focus-ring:      var(--rb-live);
+  --rb-shadow:          rgba(18, 28, 35, 0.10);
+  --rb-radius:          14px;
+  --rb-radius-sm:       9px;
+  --rb-rail-w:          336px;
+  --rb-row-h:          3.25rem;   /* 52px — fits 8 rows + header in portrait */
+  --rb-row-h-dense:    2.875rem;  /* 46px — in-session                       */
+  --rb-strip-h:        2.5rem;    /* 40px coverage strip                     */
+
+  --rb-font:         "Geist Variable", "Geist", system-ui, -apple-system, sans-serif;
+  --rb-font-display: "Saira Condensed", var(--rb-font);
+}
+
+/* ── Dark ──────────────────────────────────────────────────────────────────
+   Dark is not a flip. Saturated hero orange at full strength on a near-black
+   ground vibrates, so fills become low-alpha washes and text switches to the
+   lighter tint rather than the darker one used on white.
+   ------------------------------------------------------------------------ */
+
+:root.dark,
+:root[data-theme="dark"] {
+  --rb-bg:              #070b0f;
+  --rb-surface:         #0e151c;
+  --rb-surface-2:       #151e27;
+  --rb-surface-3:       #1d2833;
+  --rb-border:          #22303c;   /* 1.5:1 on surface                      */
+  --rb-border-strong:   #3a4c5c;   /* 2.8:1                                 */
+
+  --rb-ink:             #e8eef3;   /* 15.1:1 on surface                     */
+  --rb-ink-2:           #b6c2cc;   /* 9.0:1                                 */
+  --rb-ink-muted:       #8d9aa5;   /* 5.4:1                                 */
+  --rb-ink-faint:       #66737e;   /* 3.1:1                                 */
+
+  --rb-hero:            #ff6a20;
+  --rb-hero-text:       #ff8b4d;   /* 7.2:1 on surface                      */
+  --rb-hero-fill:       rgba(239, 83, 2, 0.16);
+  --rb-hero-on:         #1a0c04;
+
+  --rb-live:            #55a8e6;
+  --rb-live-text:       #7cc0f2;   /* 8.4:1 on surface                      */
+  --rb-live-fill:       rgba(10, 84, 139, 0.26);
+  --rb-live-on:         #04121d;
+
+  --rb-ok:              #4fc38c;   /* 8.6:1 on surface                      */
+  --rb-ok-fill:         rgba(28, 122, 82, 0.24);
+
+  --rb-avoid:           #dc93c2;   /* 8.0:1 on surface                      */
+  --rb-avoid-fill:      rgba(162, 69, 126, 0.24);
+  --rb-avoid-edge:      #a2457e;
+
+  --rb-caution:         #e0a45a;   /* 8.3:1 on surface                      */
+  --rb-caution-fill:    rgba(138, 83, 0, 0.26);
+  --rb-caution-edge:    #8a5300;
+
+  --rb-muscle-primary:   #55a8e6;
+  --rb-muscle-secondary: #2c6f9e;
+  --rb-muscle-base:      #4b555c;
+
+  --rb-shadow:          rgba(0, 0, 0, 0.5);
+}
+
+/* System preference, only when no explicit choice has been stamped. */
+@media (prefers-color-scheme: dark) {
+  :root:not(.dark):not([data-theme="light"]):not([data-theme="dark"]) {
+    --rb-bg:              #070b0f;
+    --rb-surface:         #0e151c;
+    --rb-surface-2:       #151e27;
+    --rb-surface-3:       #1d2833;
+    --rb-border:          #22303c;
+    --rb-border-strong:   #3a4c5c;
+
+    --rb-ink:             #e8eef3;
+    --rb-ink-2:           #b6c2cc;
+    --rb-ink-muted:       #8d9aa5;
+    --rb-ink-faint:       #66737e;
+
+    --rb-hero:            #ff6a20;
+    --rb-hero-text:       #ff8b4d;
+    --rb-hero-fill:       rgba(239, 83, 2, 0.16);
+    --rb-hero-on:         #1a0c04;
+
+    --rb-live:            #55a8e6;
+    --rb-live-text:       #7cc0f2;
+    --rb-live-fill:       rgba(10, 84, 139, 0.26);
+    --rb-live-on:         #04121d;
+
+    --rb-ok:              #4fc38c;
+    --rb-ok-fill:         rgba(28, 122, 82, 0.24);
+
+    --rb-avoid:           #dc93c2;
+    --rb-avoid-fill:      rgba(162, 69, 126, 0.24);
+    --rb-avoid-edge:      #a2457e;
+
+    --rb-caution:         #e0a45a;
+    --rb-caution-fill:    rgba(138, 83, 0, 0.26);
+    --rb-caution-edge:    #8a5300;
+
+    --rb-muscle-primary:   #55a8e6;
+    --rb-muscle-secondary: #2c6f9e;
+    --rb-muscle-base:      #4b555c;
+
+    --rb-shadow:          rgba(0, 0, 0, 0.5);
+  }
+}
