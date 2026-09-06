@@ -133,6 +133,8 @@ interface RowProps {
   liveValue?: LiveSet;
   liveInactive: boolean;
   settingsDisplay: "inline" | "menu";
+  /** Every other row inside a section, for the zebra band. */
+  band?: boolean;
 }
 
 function RowImpl({
@@ -154,6 +156,7 @@ function RowImpl({
   liveValue,
   liveInactive,
   settingsDisplay,
+  band,
 }: RowProps) {
   const { machine } = row;
   const hasLive = !!live && !liveInactive;
@@ -197,6 +200,10 @@ function RowImpl({
       className={`jg-row ${isSelected ? "is-selected" : ""} ${hasLive ? "has-live" : ""} ${isFocus ? "is-focus" : ""} ${
         machine.sides ? "has-sides" : ""
       }`}
+      /* Banding is counted per section, not per DOM child, so a group
+         divider never eats a stripe and the rhythm restarts cleanly under
+         each heading. Purely presentational -- hence data, not a class. */
+      data-band={band ? "1" : "0"}
       role="row"
     >
       <div className="jg-machine" role="rowheader">
@@ -865,6 +872,7 @@ const SectionBlock = memo(function SectionBlock({
             liveValue={live?.values[row.machine.id]}
             liveInactive={!!section.inactive}
             settingsDisplay={settingsDisplay}
+            band={i % 2 === 1}
           />
         ))}
     </>

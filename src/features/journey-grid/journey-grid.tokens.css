@@ -100,6 +100,11 @@
   --jg-drop:           var(--jg-ink-muted);
 
   /* Misc ------------------------------------------------------------- */
+  /* Row banding. A NEUTRAL overlay, never a background swap -- the cell's
+     background is the rep quality now, and swapping it would delete the one
+     thing this grid exists to say. 3.5% ink costs about 0.7:1 of contrast
+     at the worst pairing, which leaves every one of them above AA. */
+  --jg-band:           rgba(18, 28, 35, 0.035);
   --jg-focus-ring:     var(--jg-live);
   --jg-sticky-shadow:  rgba(18, 28, 35, 0.10);
   --jg-dim:            0.38;      /* opacity of cells outside the lens     */
@@ -154,6 +159,7 @@
   --jg-delta-up:       var(--jg-live-text);   /* #8cc4f2 — 9.5:1 surface, 7.1:1 on max fill */
   --jg-drop:           var(--jg-ink-muted);
 
+  --jg-band:           rgba(230, 236, 242, 0.045);
   --jg-sticky-shadow:  rgba(0, 0, 0, 0.45);
   --jg-dim:            0.34;
 
@@ -194,6 +200,7 @@
     --jg-q-poor-hatch:   rgba(242, 113, 140, 0.14);
     --jg-delta-up:       var(--jg-live-text);
     --jg-drop:           var(--jg-ink-muted);
+    --jg-band:           rgba(230, 236, 242, 0.045);
     --jg-sticky-shadow:  rgba(0, 0, 0, 0.45);
     --jg-dim:            0.34;
     color-scheme: dark;

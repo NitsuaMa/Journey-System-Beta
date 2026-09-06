@@ -762,6 +762,59 @@ button.jg-stat__btn:active { background: var(--jg-surface-3); }
 .jg-row.is-selected .jg-cell { box-shadow: inset 0 1px 0 var(--jg-live), inset 0 -1px 0 var(--jg-live); }
 .jg-row.is-selected .jg-cell:not([class*="--q"]) { background: var(--jg-surface-2); }
 
+/* ---- following one machine to the right edge ------------------------- *
+   The complaint this solves: eight columns out, every row looks the same,
+   and you cannot tell whether the 116 you are reading belongs to Leg Press
+   or to the row under it. Two devices, because the two cases are different.
+
+   1. BANDING, for reading any row. It has to survive on top of a green,
+      red or grey fill, so it cannot be a background swap -- it is a
+      neutral overlay on every other row, drawn on a pseudo-element that
+      only exists on banded rows and is inert to pointers. It runs the full
+      width, machine name through today's cell, so the band is a continuous
+      rule the eye can ride rather than a stripe that stops at the rail.
+
+   2. THE FOCUS TRACE, for the row you are on right now. During a session
+      exactly one machine is live, and that is the row a trainer is
+      actually trying to follow. Its name already carried an orange edge in
+      the rail; that edge now runs the whole width of the grid. Hero
+      orange, because "this is the set happening now" is the loudest thing
+      on the screen and orange is the only colour not spoken for by rep
+      quality or by "you can tap this".
+
+   Drawn as a border on the same overlay rather than as a box-shadow, so it
+   layers with the LATEST column's blue frame and a spotlight ring instead
+   of overwriting them the way the selected-row rule does. */
+.jg-row[data-band="1"] .jg-cell::after,
+.jg-row[data-band="1"] .jg-machine::after,
+.jg-row[data-band="1"] .jg-stat::after,
+.jg-row[data-band="1"] .jg-today::after,
+.jg-row.is-focus .jg-cell::after,
+.jg-row.is-focus .jg-machine::after,
+.jg-row.is-focus .jg-stat::after,
+.jg-row.is-focus .jg-today::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.jg-row[data-band="1"] .jg-cell::after,
+.jg-row[data-band="1"] .jg-machine::after,
+.jg-row[data-band="1"] .jg-stat::after,
+.jg-row[data-band="1"] .jg-today::after {
+  background: var(--jg-band);
+}
+.jg-row.is-focus .jg-cell::after,
+.jg-row.is-focus .jg-machine::after,
+.jg-row.is-focus .jg-stat::after,
+.jg-row.is-focus .jg-today::after {
+  border-top: 1.5px solid var(--jg-hero);
+  border-bottom: 1.5px solid var(--jg-hero);
+}
+/* The quality edge is 3px of border on the cell's left; the trace must not
+   cut across it, so the overlay starts inside it. */
+.jg-row.is-focus .jg-cell::after { left: 0; right: 0; }
+
 /* the most recent session's column: framed left + right, tinted when empty,
    weight a step larger. Quality fills stay — the frame sits outside them. */
 .jg-cell.is-latest { box-shadow: inset 2px 0 0 var(--jg-live), inset -2px 0 0 var(--jg-live); }
