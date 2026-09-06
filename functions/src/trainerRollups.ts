@@ -481,7 +481,19 @@ export const backfillTrainerRollups = onCall({ region: REGION }, async (request)
     if (entry.firstSessionAtMs !== null) rollups.firstSessionAt = Timestamp.fromMillis(entry.firstSessionAtMs);
     if (entry.lastSessionAtMs !== null) rollups.lastSessionAt = Timestamp.fromMillis(entry.lastSessionAtMs);
 
-    batch.set(trainerDoc.ref, { rollups }, { merge: true });
+    const patch: Record<string, unknown> = { rollups };
+
+    // Repair, while we are here, the one field the Mindbody staff sync depends
+    // on. Older trainer documents stored `mindbodyStaffId` as a number, and
+    // Firestore's `==` is type-strict: a numeric row is invisible to the
+    // string query in staffResolver. Nobody is going to re-open every trainer
+    // profile to fix that by hand.
+    const rawStaffId = (trainerDoc.data() as any)?.mindbodyStaffId;
+    if (typeof rawStaffId === "number" && Number.isFinite(rawStaffId)) {
+      patch.mindbodyStaffId = String(rawStaffId);
+    }
+
+    batch.set(trainerDoc.ref, patch, { merge: true });
     pending += 1;
     if (pending === 400) {
       await batch.commit();

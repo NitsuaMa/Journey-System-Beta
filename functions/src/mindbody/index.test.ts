@@ -62,6 +62,10 @@ describe("handleMindbodyWebhook (Inline Upsert)", () => {
   // Docs returned by a `clients.where(...)` lookup -- empty unless a test is
   // exercising the fallback match onto an app-created (random id) client doc.
   let clientQueryDocs: Array<{ id: string; ref: unknown }>;
+  // Trainer roster for `trainers.where("mindbodyStaffId", ...)`. Staff events
+  // resolve a trainer by field query rather than by doc id, because a trainer
+  // document id is the Firebase Auth uid.
+  let trainerDocs: Array<{ id: string; mindbodyStaffId?: unknown }>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -74,6 +78,7 @@ describe("handleMindbodyWebhook (Inline Upsert)", () => {
     ];
 
     clientQueryDocs = [];
+    trainerDocs = [{ id: "trainer-abc", mindbodyStaffId: "100000012" }];
 
     writes = [];
     mockSet = vi.fn().mockResolvedValue(undefined);
@@ -103,11 +108,26 @@ describe("handleMindbodyWebhook (Inline Upsert)", () => {
         };
       }
       if (path === "trainers") {
+        const buildQuery = (matches: typeof trainerDocs) => ({
+          where: (field: string, _op: string, value: unknown) =>
+            buildQuery(matches.filter((t) => (t as any)[field] === value)),
+          limit: (n: number) => buildQuery(matches.slice(0, n)),
+          get: vi.fn().mockResolvedValue({
+            size: matches.length,
+            empty: matches.length === 0,
+            docs: matches.map((t) => ({ id: t.id, data: () => t })),
+            forEach: (cb: any) =>
+              matches.forEach((t) => cb({ id: t.id, data: () => t })),
+          }),
+        });
         return {
+          ...buildQuery(trainerDocs),
+          // The booking handler lists every trainer to fuzzy-match a name.
           get: vi.fn().mockResolvedValue({
             forEach: (cb: any) =>
               cb({ id: "trainer-abc", data: () => ({ fullName: "Marina" }) }),
           }),
+          doc: mockDoc("trainers"),
         };
       }
       return {
@@ -249,7 +269,7 @@ describe("handleMindbodyWebhook (Inline Upsert)", () => {
     expect(response.statusCode).toBe(400);
   });
 
-  it("7. Valid signature + event without clientId anywhere -> returns 200, no write", async () => {
+  it("7. Valid signature + event without clientId anywhere -> returns 200, parked not filed", async () => {
     const rawBody = createValidEnvelope({ eventData: { siteId: 99999 } }); // No clientId
     const signatureHeader = signForTest(rawBody, mockSecret);
     const req: WebhookRequest = { rawBody, signatureHeader };
@@ -257,7 +277,13 @@ describe("handleMindbodyWebhook (Inline Upsert)", () => {
     const response = await handleMindbodyWebhook(deps, req);
 
     expect(response.statusCode).toBe(200);
-    expect(mockSet).not.toHaveBeenCalled();
+    // No client can be written -- there is no id to write it against.
+    expect(writesTo("clients")).toHaveLength(0);
+    // But it is no longer dropped on the floor either: a client event with no
+    // client id is malformed data an admin should see, so it lands in limbo.
+    const [parked] = writesTo("mindbodyLimbo");
+    expect(parked.data.kind).toBe("client");
+    expect(parked.data.reason).toContain("no client id");
   });
 
   it("8. Valid signature + Firestore set throws -> returns 500, records webhook_failure", async () => {
@@ -1028,6 +1054,125 @@ describe("handleMindbodyWebhook (Inline Upsert)", () => {
       expect(toUtcTimestamp("")).toBeUndefined();
       expect(toUtcTimestamp("not a date")).toBeUndefined();
       expect(toUtcTimestamp(undefined)).toBeUndefined();
+    });
+  });
+
+  /**
+   * STAFF EVENTS (Sep 2026, Trainer Dossier round).
+   *
+   * The first test here is the one that matters: `isClientEvent` used to be
+   * `!isBookingEvent && !isCommercialEvent`, a catch-all rather than a test,
+   * so a staff event fell into the client profile upsert. Subscribing to
+   * staff.* without that fix would have written staff records into `clients`.
+   */
+  describe("staff events", () => {
+    const staffEnvelope = (
+      eventId: string,
+      eventData: Record<string, unknown>,
+    ) =>
+      JSON.stringify({
+        messageId: `msg-${eventId}-${JSON.stringify(eventData).length}`,
+        eventId,
+        eventSchemaVersion: 1,
+        eventData: { siteId: 99999, ...eventData },
+      });
+
+    const post = async (rawBody: string) =>
+      handleMindbodyWebhook(deps, {
+        rawBody,
+        signatureHeader: signForTest(rawBody, mockSecret),
+      });
+
+    it("27. a staff event never reaches the clients collection", async () => {
+      const response = await post(
+        staffEnvelope("staff.updated", {
+          staffId: 100000012,
+          firstName: "Austin",
+          lastName: "Jurgens",
+        }),
+      );
+
+      expect(response.statusCode).toBe(200);
+      expect(writesTo("clients")).toHaveLength(0);
+    });
+
+    it("28. a matched staff event writes only the mindbody map", async () => {
+      await post(
+        staffEnvelope("staff.updated", {
+          staffId: 100000012,
+          firstName: "Austin",
+          lastName: "Jurgens",
+          email: "aj@example.com",
+          imageUrl: "https://cdn.example.com/aj.jpg",
+        }),
+      );
+
+      const [written] = writesTo("trainers");
+      expect(written.id).toBe("trainer-abc");
+      expect(written.options).toEqual({ merge: true });
+      // The entire patch is one key. Role, pinHash and studio access are
+      // untouchable by a webhook by construction, not by review.
+      expect(Object.keys(written.data)).toEqual(["mindbody"]);
+      expect(written.data.mindbody).toMatchObject({
+        staffId: "100000012",
+        displayName: "Austin Jurgens",
+        email: "aj@example.com",
+        imageUrl: "https://cdn.example.com/aj.jpg",
+        lastEventType: "staff.updated",
+      });
+    });
+
+    it("29. a staff id nobody carries is parked, and no trainer is created", async () => {
+      await post(staffEnvelope("staff.created", { staffId: 777 }));
+
+      expect(writesTo("trainers")).toHaveLength(0);
+      const [parked] = writesTo("mindbodyLimbo");
+      expect(parked.data.kind).toBe("staff");
+      expect(parked.data.reason).toContain("777");
+      expect(parked.data.reason).toContain("never creates a trainer account");
+    });
+
+    it("30. a staff id claimed by two trainers is parked rather than guessed", async () => {
+      trainerDocs = [
+        { id: "trainer-a", mindbodyStaffId: "55" },
+        { id: "trainer-b", mindbodyStaffId: "55" },
+      ];
+
+      await post(staffEnvelope("staff.updated", { staffId: 55, firstName: "Sam" }));
+
+      expect(writesTo("trainers")).toHaveLength(0);
+      const [parked] = writesTo("mindbodyLimbo");
+      expect(parked.data.kind).toBe("staff");
+      expect(parked.data.reason).toContain("more than one trainer");
+    });
+
+    it("31. deactivation is recorded but revokes nothing", async () => {
+      await post(staffEnvelope("staff.deactivated", { staffId: 100000012 }));
+
+      const [written] = writesTo("trainers");
+      expect(written.data.mindbody.isActive).toBe(false);
+      // Access is a human decision. A mis-mapped staff id must not be able to
+      // lock a trainer out mid-session.
+      expect(written.data).not.toHaveProperty("role");
+      expect(written.data).not.toHaveProperty("isVisibleOnCalendar");
+      expect(written.data).not.toHaveProperty("accessibleStudioIds");
+    });
+
+    it("32. a staff event with no staff id is parked, not dropped", async () => {
+      await post(staffEnvelope("staff.updated", { firstName: "Nobody" }));
+
+      const [parked] = writesTo("mindbodyLimbo");
+      expect(parked.data.kind).toBe("staff");
+      expect(parked.data.reason).toContain("no staff id");
+    });
+
+    it("33. an event type no branch claims is parked instead of vanishing", async () => {
+      await post(staffEnvelope("location.updated", { locationId: 3 }));
+
+      expect(writesTo("clients")).toHaveLength(0);
+      const [parked] = writesTo("mindbodyLimbo");
+      expect(parked.data.kind).toBe("unhandled");
+      expect(parked.data.reason).toContain("location.updated");
     });
   });
 });

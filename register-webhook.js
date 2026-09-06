@@ -28,6 +28,29 @@ function getEnv(key) {
   }
 }
 
+/**
+ * Every event this deployment handles.
+ *
+ * Keep in step with the branches in functions/src/mindbody/index.ts. Anything
+ * subscribed here but unhandled there lands in the `mindbodyLimbo` queue
+ * rather than being processed -- the safe direction, but still noise.
+ *
+ * staff.* added Sep 2026 (Trainer Dossier round). Do NOT subscribe to these
+ * until the staff branch is DEPLOYED: before it existed, `isClientEvent` was a
+ * catch-all and a staff event would have been written into the `clients`
+ * collection.
+ */
+const EVENT_IDS = [
+  'client.created',
+  'client.updated',
+  'appointmentBooking.created',
+  'appointmentBooking.updated',
+  'appointmentBooking.cancelled',
+  'staff.created',
+  'staff.updated',
+  'staff.deactivated',
+];
+
 async function main() {
   // No hardcoded fallback: this key was previously committed in plain text.
   const apiKey = getEnv('MINDBODY_API_KEY');
@@ -39,6 +62,7 @@ async function main() {
   const webhookUrl = 'https://us-central1-gen-lang-client-0731527386.cloudfunctions.net/mindbodyWebhook';
 
   console.log(`Starting Webhook Sync for Site ID: ${siteId}...`);
+  console.log(`Events: ${EVENT_IDS.join(', ')}`);
   console.log(`Webhook URL: ${webhookUrl}`);
   console.log('--------------------------------------------------');
 
@@ -82,13 +106,7 @@ async function main() {
       const payload = {
         webhookUrl: webhookUrl,
         eventSchemaVersion: 1,
-        eventIds: [
-          'client.created',
-          'client.updated',
-          'appointmentBooking.created',
-          'appointmentBooking.updated',
-          'appointmentBooking.cancelled'
-        ]
+        eventIds: EVENT_IDS
       };
 
       const createRes = await fetch('https://mb-api.mindbodyonline.com/push/api/v1/subscriptions', {
@@ -127,8 +145,13 @@ async function main() {
         'Api-Key': apiKey,
         'SiteId': String(siteId)
       },
+      // eventIds is sent on every run, not just at creation. Previously this
+      // PATCH only set `status: Active`, so adding an event type to the list
+      // above had no effect on a subscription that already existed -- the
+      // script reported success and changed nothing.
       body: JSON.stringify({
-        status: 'Active'
+        status: 'Active',
+        eventIds: EVENT_IDS
       })
     });
 

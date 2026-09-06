@@ -129,7 +129,12 @@ export function EditTrainerModal({
       setAccessibleStudioIds(trainer.accessibleStudioIds || []);
       setActiveGuestStudioIds(trainer.activeGuestStudioIds || []);
       setIsVisibleOnCalendar(trainer.isVisibleOnCalendar !== false);
-      setMindbodyStaffId(trainer.mindbodyStaffId || "");
+      // String(): older documents stored this as a NUMBER, and the save
+      // path calls .trim() on it. Coercing on load both fixes that crash
+      // and repairs the row the next time the profile is saved -- which
+      // matters because the staff webhook finds a trainer by matching this
+      // field, and Firestore's == is type-strict.
+      setMindbodyStaffId(String(trainer.mindbodyStaffId ?? ""));
     }
   }, [trainer, isOpen]);
 
