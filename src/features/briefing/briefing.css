@@ -302,6 +302,25 @@
 
 /* --- 4. execution sequence ---------------------------------------------- */
 
+/* The shared Routine Builder, embedded in the briefing.
+
+   It needs a bounded height to lay out — its list scrolls internally and its
+   rail is a sibling column, so an auto height would let the list grow the
+   page and the rail stretch with it. 30rem shows eight rows plus the header
+   in portrait, which is the constraint the builder is designed around;
+   landscape gets more because the figure wants it. */
+.br__builder {
+  height: 30rem;
+  min-height: 0;
+  border: 1px solid var(--br-border, rgba(127, 127, 127, 0.25));
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+@media (min-width: 900px) {
+  .br__builder { height: 34rem; }
+}
+
 .br__seq { display: flex; flex-direction: column; gap: 6px; }
 
 .br__seq-item {
