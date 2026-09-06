@@ -112,7 +112,7 @@ import {
   findIncompleteLogs,
 } from "../lib/log-validation";
 import { ActiveSessionTimer } from "./ActiveSessionTimer";
-import { SessionRoutineManagerModal } from "./SessionRoutineManagerModal";
+import { RoutineBuilder } from "../features/routine-builder";
 import { MachineSheet } from "../features/equipment/MachineSheet";
 /* Lazy, and the reason is measurable: the assessment panel is a 162 kB
    chunk (50 kB gzipped) that most sessions never open. A static import
@@ -1380,8 +1380,18 @@ export function WorkoutTrackerView({
   const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
   const [pendingAssignSession, setPendingAssignSession] =
     useState<WorkoutSession | null>(null);
-  const [isSessionRoutineManagerOpen, setIsSessionRoutineManagerOpen] =
-    useState(false);
+  const [isRoutinePanelOpen, setIsRoutinePanelOpen] = useState(false);
+
+  /**
+   * Every mid-session change to the machine list lands here, and lands
+   * immediately — no staging buffer, no Confirm step.
+   *
+   * This was a modal with a Cancel/Confirm footer, which meant a trainer with
+   * a client waiting had to open a dialog, make the change, and then agree
+   * with themselves before the screen caught up. Session state is local and
+   * nothing is written to Firestore either way, so there was never anything
+   * for the confirm step to protect.
+   */
   const handleSaveSessionMachineIds = (newIds: string[]) => {
     setActiveMachineIds(newIds);
   };
@@ -3487,11 +3497,12 @@ export function WorkoutTrackerView({
           </span>
           <button
             type="button"
-            className="jg-rail__edit"
-            onClick={() => setIsSessionRoutineManagerOpen(true)}
+            className={`jg-rail__edit ${isRoutinePanelOpen ? "is-on" : ""}`}
+            aria-expanded={isRoutinePanelOpen}
+            onClick={() => setIsRoutinePanelOpen((o) => !o)}
           >
             <Settings2 className="w-3 h-3 shrink-0" strokeWidth={2.5} />
-            Edit Routine
+            {isRoutinePanelOpen ? "Done" : "Edit Routine"}
           </button>
           <button
             type="button"
@@ -3522,6 +3533,22 @@ export function WorkoutTrackerView({
             )}
           </div>
         </div>
+
+        {/* Reordering happens here, in place, above the list it reorders.
+            Drag a machine and the grid behind it has already changed — the
+            trainer's input is the answer, not a proposal. */}
+        {currentSession && isRoutinePanelOpen && (
+          <div className="jg-rail__panel">
+            <RoutineBuilder
+              mode="in-session"
+              machineIds={activeMachineIds}
+              onChange={handleSaveSessionMachineIds}
+              machines={machines}
+              client={selectedClient}
+              established
+            />
+          </div>
+        )}
 
         {gridLive && (
           <JourneyGrid
@@ -3658,16 +3685,6 @@ export function WorkoutTrackerView({
           />
         )}
       </AnimatePresence>
-
-      {currentSession && (
-        <SessionRoutineManagerModal
-          isOpen={isSessionRoutineManagerOpen}
-          onOpenChange={setIsSessionRoutineManagerOpen}
-          currentMachineIds={activeMachineIds}
-          machines={machines}
-          onSave={handleSaveSessionMachineIds}
-        />
-      )}
 
       {currentSession && activeMachineIds.length > 0 && (
         <div className="fixed bottom-0 left-2 p-1 pointer-events-none opacity-20 z-110">

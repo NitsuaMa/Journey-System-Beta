@@ -171,27 +171,33 @@ export function RoutineBuilder({
   /** Highest severity each position participates in. */
   const severityByIndex = useMemo(() => {
     const map = new Map<number, "avoid" | "caution">();
+    if (!cfg.showWarnings) return map;
     for (const v of analysis.violations) {
       for (const i of v.indices) {
         if (v.severity === "avoid" || !map.has(i)) map.set(i, v.severity);
       }
     }
     return map;
-  }, [analysis.violations]);
+  }, [analysis.violations, cfg.showWarnings]);
 
   /** Adjacency cards render under the pair; session cards collect at the end. */
   const adjacentAfterIndex = useMemo(() => {
     const map = new Map<number, typeof analysis.violations>();
+    if (!cfg.showWarnings) return map;
     for (const v of analysis.violations) {
       if (v.scope !== "adjacent") continue;
       const at = v.indices[1];
       map.set(at, [...(map.get(at) ?? []), v]);
     }
     return map;
-  }, [analysis.violations]);
+  }, [analysis.violations, cfg.showWarnings]);
 
-  const sessionViolations = analysis.violations.filter((v) => v.scope === "session");
-  const avoidCount = analysis.violations.filter((v) => v.severity === "avoid").length;
+  const sessionViolations = cfg.showWarnings
+    ? analysis.violations.filter((v) => v.scope === "session")
+    : [];
+  const avoidCount = cfg.showWarnings
+    ? analysis.violations.filter((v) => v.severity === "avoid").length
+    : 0;
 
   /* ── Mutations ──────────────────────────────────────────────────────── */
 

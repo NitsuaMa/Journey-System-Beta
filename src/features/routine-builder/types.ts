@@ -129,6 +129,18 @@ export interface ModeConfig {
   scope: { label: string; permanent: boolean } | null;
   /** Offer the Academy's substitutes when a machine cannot be used today. */
   allowSwap: boolean;
+  /**
+   * Show rule violations.
+   *
+   * Off mid-session, and that is a deliberate asymmetry rather than an
+   * oversight. A routine is designed on the client profile and checked in the
+   * briefing; by the time a session is running, a trainer reordering it is
+   * reacting to something real — a busy station, a client who arrived late,
+   * a set that needs blood flow rather than failure. Telling them at that
+   * moment that their reshuffle put two pulls together is advice about a
+   * decision they have already made for reasons the app cannot see.
+   */
+  showWarnings: boolean;
 }
 
 export const MODE_CONFIG: Record<BuilderMode, ModeConfig> = {
@@ -144,6 +156,7 @@ export const MODE_CONFIG: Record<BuilderMode, ModeConfig> = {
     emptyHint: "Add machines to build the template. Seven is the Academy's target.",
     scope: null,
     allowSwap: false,
+    showWarnings: true,
   },
   baseline: {
     showFigure: true,
@@ -157,6 +170,7 @@ export const MODE_CONFIG: Record<BuilderMode, ModeConfig> = {
     emptyHint: "Start from a preset, or add machines one at a time.",
     scope: { label: "Saves to the client’s routine", permanent: true },
     allowSwap: false,
+    showWarnings: true,
   },
   briefing: {
     showFigure: true,
@@ -170,6 +184,7 @@ export const MODE_CONFIG: Record<BuilderMode, ModeConfig> = {
     emptyHint: "Pick a routine above, or build today's session from scratch.",
     scope: { label: "Today only", permanent: false },
     allowSwap: true,
+    showWarnings: true,
   },
   "in-session": {
     showFigure: true,
@@ -183,5 +198,6 @@ export const MODE_CONFIG: Record<BuilderMode, ModeConfig> = {
     emptyHint: "No machines in this session yet.",
     scope: { label: "Today only", permanent: false },
     allowSwap: true,
+    showWarnings: false,
   },
 };
