@@ -2583,7 +2583,24 @@ export function WorkoutTrackerView({
     return out;
   }, [logs, gridRows, currentSession?.id]);
 
-  /** The machine being performed: the first one without a full set, unless the trainer tapped another. */
+  /**
+   * Where the trainer is working.
+   *
+   * This is a SEED, not a live driver, and the difference is the whole point.
+   *
+   * It used to be the fallback whenever no machine had been tapped, which made
+   * focus move on its own: entering reps auto-fills the quality mark, that
+   * completes the row, this memo recomputes, and the Now bar jumps to the next
+   * machine — while the trainer is still deciding whether the set they just
+   * watched was a max effort or one that broke down. The screen moved on
+   * mid-judgement, and the quality mark it had already filled in for them was
+   * the default one.
+   *
+   * So focus is seeded once when a session opens (from the first incomplete
+   * machine, so resuming a part-logged session lands in the right place) and
+   * afterwards moves only when the trainer says so — the Next button, a tap on
+   * a Today cell, or logging a TSC.
+   */
   const firstIncompleteMachineId = useMemo(() => {
     if (!currentSession?.id) return null;
     for (const id of activeMachineIds) {
@@ -2594,6 +2611,28 @@ export function WorkoutTrackerView({
     return activeMachineIds[0] ?? null;
   }, [activeMachineIds, gridLiveValues, currentSession?.id]);
   const [focusMachineOverride, setFocusMachineOverride] = useState<string | null>(null);
+  const seededFocusForSession = useRef<string | null>(null);
+
+  useEffect(() => {
+    const sessionId = currentSession?.id ?? null;
+    if (!sessionId) {
+      seededFocusForSession.current = null;
+      setFocusMachineOverride(null);
+      return;
+    }
+    // Once per session, and only after the routine has loaded — seeding from
+    // an empty list would pin focus to nothing and never correct itself.
+    if (seededFocusForSession.current === sessionId) return;
+    if (activeMachineIds.length === 0) return;
+    seededFocusForSession.current = sessionId;
+    setFocusMachineOverride(firstIncompleteMachineId ?? activeMachineIds[0]);
+  }, [currentSession?.id, activeMachineIds, firstIncompleteMachineId]);
+
+  /**
+   * The fallback survives for exactly one case now: the focused machine being
+   * dropped from the session. Anything else and the override holds, which is
+   * what keeps the screen still while a set is being judged.
+   */
   const gridFocusMachineId =
     focusMachineOverride && activeMachineIds.includes(focusMachineOverride)
       ? focusMachineOverride
