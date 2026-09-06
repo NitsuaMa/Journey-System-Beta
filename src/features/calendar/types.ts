@@ -48,6 +48,11 @@ export interface TrainerRef {
   initials: string;
   /** Index into the palette. Stable for the life of the trainer id. */
   tone: number;
+  /**
+   * Mindbody staff photo, when there is one. Most staff have none, so the
+   * tone-coloured initials are the primary renderer, not a fallback state.
+   */
+  photoUrl?: string | null;
 }
 
 /** A trainer's share of some period. */

@@ -148,6 +148,108 @@ export interface TrainerAvailability {
  * TRAINER & STAFF PROFILES
  * Trainers are assigned to home locations but can be granted guest access elsewhere.
  */
+/**
+ * Facts MINDBODY owns about a staff member.
+ *
+ * Written only by the Mindbody sync (webhook + scheduled refresh) and never
+ * edited in the app. Kept in its own map on purpose: a trainer document also
+ * carries `role`, `pinHash` and studio access, and no external system should
+ * ever be one field-name collision away from changing those.
+ */
+export interface MindbodyStaffSnapshot {
+  staffId: string;
+  siteId?: string;
+  firstName?: string;
+  lastName?: string;
+  displayName?: string;
+  email?: string;
+  /** Mindbody's staff photo. Usually absent -- initials remain the default. */
+  imageUrl?: string | null;
+  imageFetchedAt?: any;
+  isActive?: boolean;
+  homeLocationId?: string;
+  locationIds?: string[];
+  lastSyncAt?: any;
+  /** e.g. "staff.updated" -- surfaced in the Integrations Hub. */
+  lastEventType?: string;
+}
+
+/** Why a client is on a trainer's Kaizen Roster. Keeps the list scannable. */
+export type KaizenReason =
+  | "Progression"
+  | "Form"
+  | "Return"
+  | "Retention"
+  | "Milestone"
+  | "Other";
+
+export const KAIZEN_REASONS: KaizenReason[] = [
+  "Progression",
+  "Form",
+  "Return",
+  "Retention",
+  "Milestone",
+  "Other",
+];
+
+/** What each reason means on the floor. Used for the picker's helper text. */
+export const KAIZEN_REASON_HINTS: Record<KaizenReason, string> = {
+  Progression: "Pushing a specific adaptation",
+  Form: "4 P's work in flight",
+  Return: "Coming back from a layoff",
+  Retention: "At risk, needs attention",
+  Milestone: "Approaching something worth marking",
+  Other: "Anything else worth watching",
+};
+
+/**
+ * One client a trainer has chosen to keep an eye on.
+ *
+ * NOTE ON COLOUR: the red kaizen mark belongs to rep quality ("this set needs
+ * work"). Roster membership is drawn in brand slate/blue and never crimson,
+ * so a glance can always tell "I am tracking you" from "that rep was poor".
+ */
+export interface KaizenRosterEntry {
+  clientId: string;
+  /** Denormalised so a roster row renders before the client list resolves. */
+  clientName: string;
+  reason: KaizenReason;
+  /** Max 240 characters. */
+  note?: string;
+  addedAt: any;
+  addedByTrainerId: string;
+  /** Optional check-back date; drives the "due" sort. */
+  reviewBy?: any;
+}
+
+/** Hard cap. A roster of 200 is a client list, and it would bloat a document
+ *  that streams to every device on every snapshot. */
+export const KAIZEN_ROSTER_MAX = 40;
+
+/**
+ * Persisted session counters. NEVER computed on read.
+ *
+ * `sessionsCoached` is incremented by a Cloud Function the moment a session
+ * completes; the windowed figures are rewritten nightly, because a rolling
+ * 30-day number has to forget things and a counter cannot.
+ */
+export interface TrainerRollups {
+  /** Lifetime, incremented at write time. */
+  sessionsCoached?: number;
+  sessionsCoached30d?: number;
+  sessionsCoached90d?: number;
+  /** Distinct clients coached in the last 90 days. */
+  clientsCoached90d?: number;
+  /** Sessions per week across the 90-day window. */
+  avgPerWeek?: number;
+  firstSessionAt?: any;
+  lastSessionAt?: any;
+  windowsUpdatedAt?: any;
+  /** Stamped by the admin backfill. Absent = history not yet counted. */
+  rollupVersion?: number;
+  rollupUpdatedAt?: any;
+}
+
 export interface Trainer {
   id: string;
   fullName: string;
@@ -176,6 +278,14 @@ export interface Trainer {
   order?: number;
   isVisibleOnCalendar?: boolean;
   searchTokens?: string[];
+  /** Locally set photo. Beats `mindbody.imageUrl` when present. */
+  photoUrl?: string | null;
+  /** Everything the Mindbody staff sync owns. Nothing else writes here. */
+  mindbody?: MindbodyStaffSnapshot;
+  /** Owner writes, whole studio team reads. Capped at KAIZEN_ROSTER_MAX. */
+  kaizenRoster?: KaizenRosterEntry[];
+  /** Server-maintained counters. Never written from a client. */
+  rollups?: TrainerRollups;
 }
 
 export type NewTrainerPayload = CreateTrainerPayload;
@@ -227,6 +337,9 @@ export interface UpdateTrainerPayload {
   mindbodyStaffId?: string;
   mindbody_ical_url?: string;
   order?: number;
+  /** The Start date picker in Edit Trainer had nowhere to land before. */
+  employmentStartDate?: any;
+  photoUrl?: string | null;
 }
 
 export interface ClientEvent {
