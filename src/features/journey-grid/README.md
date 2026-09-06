@@ -91,9 +91,9 @@ The redesign runs on a **color budget**: color is spent only where it carries a 
 
 | Meaning | Color | Why |
 |---|---|---|
-| **Max strength set** (quality 3) | Green `--jg-q-max-fill` `#dff3e7` / `#103728` dark, plus a **gold ★** | The one thing a trainer should spot from across the room. The fill is the whole cell, so it survives at 26px rows and eight columns out. |
+| **Max strength set** (quality 3) | Green `--jg-q-max-fill` `#cae4ce` / `#104525` dark, plus a **gold ★** | The one thing a trainer should spot from across the room. The fill is the whole cell, so it survives at 26px rows and eight columns out. |
 | **Completed set** (quality 2) | Slate tint derived from `--brand-primary-3` | The baseline. A normal week of training should read *calm*. No yellow anywhere — amber reads as a warning, and "you did the work" is not a warning. |
-| **Needs improvement** (quality 1) | Crimson `#c0203f` on `#fce3e8`, a diagonal hatch, and a **red kaizen ◯** | Unmistakably "not right" without calling it a failure. The kaizen ring is the point: an open circle means there is another rep tomorrow. |
+| **Needs improvement** (quality 1) | Crimson `#c0203f` on `#f8bcc6`, a diagonal hatch, and a **red kaizen ◯** | Unmistakably "not right" without calling it a failure. The kaizen ring is the point: an open circle means there is another rep tomorrow. |
 | **Load movement** | Brand blue text, always with ▲/▼ | Text-level only — it never paints a cell, because the cell belongs to quality. The arrow is what stops a blue number from reading as a control. |
 | **Baseline / interactive** | Brand blue `--brand-accent-4` / `--brand-primary-2` | Everything a trainer *acts on* is blue: the LATEST column, the Today column, the Analytics header, a spotlighted date, focus rings, the row trace. Blue never encodes a result. |
 | **Now** | Hero orange `--jg-hero` | The set happening this second: the focus machine's name edge and its row trace. Orange means "here", never a result. |
@@ -102,10 +102,18 @@ The redesign runs on a **color budget**: color is spent only where it carries a 
 **On green and red together.** Putting the two rated states on the one pair a
 protanope or deuteranope cannot distinguish is a real cost, taken knowingly
 because green/red/grey is what a sighted trainer reads fastest with no
-legend at all. It is paid for with two non-colour channels: **shape** (★ vs
-◯ vs nothing) and **texture** (the poor cell's hatch). Desaturate the grid
-and all three states are still distinct. Any future change to this palette
-has to keep both.
+legend at all. It is paid for three ways: **shape** (★ vs ◯ vs nothing),
+**texture** (the poor cell's hatch), and **lightness** — the three fills
+step at least 1.15:1 apart from each other, so they stay distinct with the
+colour taken away entirely.
+
+That last one is not decoration and was not free. The first cut of this
+palette used prettier, paler tints and put the green max fill 0.002
+luminance from the grey completed fill: in greyscale, at distance, or for a
+trainer with achromatopsia, "max strength" and "ordinary set" were the same
+cell — while the entire premise of v6 is that the fill is what you read at
+a glance. The fills went deeper to fix it. `contrast.test.ts` now fails the
+build if a future nudge closes that gap again.
 
 Movement groups (Neck / Lower body / Push / Pull / Core) are available as **section divider rows** ("By group"), not as paint. The default order is the studio sequence (`DEFAULT_MACHINE_DISPLAY_ORDER`), unchanged.
 
@@ -144,15 +152,23 @@ Every text/fill pairing was checked against WCAG 2.1 AA. Worst cases:
 
 | Pairing | Light | Dark |
 |---|---|---|
-| Weight text on any cell fill | 14.5 : 1 | 11.5 : 1 |
-| Reps text on any cell fill | 7.7 : 1 | 8.4 : 1 |
+| Weight text on any cell fill | 10.0 : 1 | 8.2 : 1 |
+| Reps text on any cell fill | 5.3 : 1 | 6.0 : 1 |
 | Muted labels on header band | 5.0 : 1 | 6.3 : 1 |
-| Green text on max fill | 5.6 : 1 | 8.1 : 1 |
-| Blue load delta on max fill | 7.8 : 1 | 7.1 : 1 |
-| Crimson text on poor fill | 6.4 : 1 | 7.8 : 1 |
-| Gold ★ on max fill (non-text) | 3.4 : 1 | 8.3 : 1 |
-| Red kaizen ◯ on poor fill (non-text) | 4.9 : 1 | 6.1 : 1 |
-| Banded row overlay, worst pairing | −0.7 : 1 | −0.6 : 1 |
+| Green text on max fill | 4.9 : 1 | 6.0 : 1 |
+| Blue load delta on max fill | 6.3 : 1 | 5.3 : 1 |
+| Crimson text on poor fill | 4.5 : 1 | 8.7 : 1 |
+| Gold ★ on max fill (non-text) | 3.5 : 1 | 6.2 : 1 |
+| Red kaizen ◯ on poor fill (non-text) | 3.5 : 1 | 5.7 : 1 |
+
+Every figure above is the WORSE of the pairing on a plain row and on a
+**banded** row, because half the rows carry the banding overlay and a
+pairing that only clears AA on unbanded rows clears it every other row.
+
+None of these are typed by hand any more. `contrast.test.ts` parses the
+token file, resolves the `var()` chains, and asserts all of it — 66 checks,
+both themes, banded and not — so retuning a token to something that fails AA
+fails the build instead of shipping.
 | Blue text on LATEST / Today fill | 7.7 : 1 | 7.7 : 1 |
 | Quality edge (non-text) on surface | ≥ 3.5 : 1 | ≥ 5.9 : 1 |
 

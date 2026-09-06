@@ -72,18 +72,27 @@
      red-green colour-blind trainer cannot split, so quality also carries a
      SHAPE (★ = max, ◯ kaizen = needs work, nothing = ordinary) and the
      poor cell keeps its diagonal hatch. Three cues, any one of which is
-     enough on its own.                                                   */
-  --jg-q-max-fill:     #dff3e7;   /* ink 14.7:1 · ink-2 7.9:1              */
+     enough on its own.
+
+     The exact lightness of the three fills is load-bearing, not taste. The
+     first cut of this palette put green at the same luminance as the grey —
+     0.002 apart — so in greyscale, or at distance, or for a trainer with
+     achromatopsia, "max strength" and "ordinary set" were the same cell.
+     They now step apart by at least 1.15:1 fill-to-fill, in both themes,
+     and contrast.test.ts fails the build if a future nudge closes that gap.
+     If you retune these, run the test: the numbers below are measured, not
+     estimated.                                                            */
+  --jg-q-max-fill:     #cae4ce;   /* ink 11.9:1 · ink-2 6.4:1              */
   --jg-q-max-edge:     #1a9c69;   /* 3.5:1 on white — border weight only   */
-  --jg-q-max-text:     #0b6b47;   /* 7.5:1 on white, 5.6:1 on its fill     */
-  --jg-q-star:         #a8760d;   /* the gold ★ — 3.4:1 on the max fill    */
+  --jg-q-max-text:     #0a6644;   /* 7.9:1 on white, 4.9:1 on its fill     */
+  --jg-q-star:         #946609;   /* the gold ★ — 3.5:1 on the max fill    */
   /* 1 · Poor quality — crimson. The plum it replaces read as a decorative
      accent, which is the one thing an error must never look like. The
      mark is a CROSS, the edge is snapped and the fill is hatched, so
      colour is the last of four cues, never the only one.                 */
   --jg-q-poor:         #c0203f;   /* 5.9:1 on white, 5.0:1 on its fill     */
   --jg-q-poor-text:    #a3122f;   /* 7.6:1 on white, 6.4:1 on its fill     */
-  --jg-q-poor-fill:    #fce3e8;
+  --jg-q-poor-fill:    #f8bcc6;
   --jg-q-poor-hatch:   rgba(192, 32, 63, 0.15);
 
   /* Load movement ----------------------------------------------------- *
@@ -147,13 +156,13 @@
 
   --jg-q-done-fill:    #242c33;
   --jg-q-done-edge:    #455058;
-  --jg-q-max-fill:     #103728;   /* green mixed into the dark surface     */
+  --jg-q-max-fill:     #104525;   /* green mixed into the dark surface     */
   --jg-q-max-edge:     #3fca8e;   /* 8.0:1 on surface                      */
   --jg-q-max-text:     #6fe0ab;   /* 10.6:1 on surface, 8.1:1 on its fill  */
   --jg-q-star:         #f0c874;   /* the ★ stays gold — 8.3:1 on max fill  */
   --jg-q-poor:         #f2718c;   /* 7.6:1 on surface, 6.1:1 on fill       */
   --jg-q-poor-text:    #ffa8b8;   /* 10.2:1                                */
-  --jg-q-poor-fill:    #3a1c25;
+  --jg-q-poor-fill:    #320e16;
   --jg-q-poor-hatch:   rgba(242, 113, 140, 0.14);
 
   --jg-delta-up:       var(--jg-live-text);   /* #8cc4f2 — 9.5:1 surface, 7.1:1 on max fill */
@@ -190,13 +199,13 @@
     --jg-live-on:        #0b1015;
     --jg-q-done-fill:    #242c33;
     --jg-q-done-edge:    #455058;
-    --jg-q-max-fill:     #103728;
+    --jg-q-max-fill:     #104525;
     --jg-q-max-edge:     #3fca8e;
     --jg-q-max-text:     #6fe0ab;
     --jg-q-star:         #f0c874;
     --jg-q-poor:         #f2718c;
     --jg-q-poor-text:    #ffa8b8;
-    --jg-q-poor-fill:    #3a1c25;
+    --jg-q-poor-fill:    #320e16;
     --jg-q-poor-hatch:   rgba(242, 113, 140, 0.14);
     --jg-delta-up:       var(--jg-live-text);
     --jg-drop:           var(--jg-ink-muted);
