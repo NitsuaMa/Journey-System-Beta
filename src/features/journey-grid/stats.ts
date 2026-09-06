@@ -6,7 +6,7 @@ import type { JourneyRow, JourneySession, JourneySet, RepQuality, StatMetric } f
  * ------------------------------------------------------------------ */
 
 export const QUALITY_LABEL: Record<RepQuality, string> = {
-  1: "Poor quality",
+  1: "Needs improvement",
   2: "Completed",
   3: "Max strength",
 };

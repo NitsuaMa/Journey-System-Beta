@@ -1,6 +1,7 @@
 import { memo } from "react";
 import type { JourneySet, JourneySession } from "./types";
 import { formatSeconds, formatLongDate, QUALITY_LABEL, loadDelta, trendVsPrevious, type Trend } from "./stats";
+import { QualityMark } from "./QualityMark";
 
 interface JourneyCellProps {
   session: JourneySession;
@@ -30,11 +31,17 @@ const TREND_GLYPH: Record<NonNullable<Trend>, string> = {
 };
 
 /**
- * One historical cell. Quality is carried entirely by the cell's skin -- a
- * solid left edge for a full inroad, a snapped one for a set where tension
- * broke, nothing for an ordinary set -- so nothing competes with the two
- * numbers. A corner glyph in every cell of every column was clutter at the
- * exact density this grid exists to reach.
+ * One historical cell. Quality is carried by the cell's FILL -- green for a
+ * full inroad, red for a set that needs work, grey for an ordinary one --
+ * and by nothing else, which is the point: a load increase used to tint the
+ * same cell green, so two unrelated facts were fighting over one channel.
+ * Load movement is now text-only (a blue signed number) and quality owns
+ * the background alone.
+ *
+ * The corner mark is the backup channel, not the primary one. It is drawn
+ * only for the two rated states, so a normal week of training carries no
+ * glyphs at all -- and it exists because green-vs-red is precisely the pair
+ * a red-green colour-blind trainer cannot separate.
  *
  * Pure and memoised: it re-renders only when its own set or flags change. With ~20 rows × ~15 columns that is the difference
  * between 300 renders and 1 when the trainer taps something.
@@ -86,7 +93,11 @@ function JourneyCellImpl({ session, machineName, set, previous, isLatest, isSpot
             own rather than an arrow shared with the rep count. */}
         {delta !== null && (
           <span className={delta > 0 ? "jg-delta jg-delta--gain" : "jg-delta jg-delta--drop"} aria-hidden="true">
-            {delta > 0 ? `+${delta}` : delta}
+            {/* The arrow is not decoration. Blue means "tappable" everywhere
+                else in this grid, so a bare blue "2" would read as a button;
+                a number wearing an arrow reads as a measurement. */}
+            <span className="jg-delta__arrow">{delta > 0 ? "\u25b2" : "\u25bc"}</span>
+            {Math.abs(delta)}
           </span>
         )}
       </span>
@@ -98,6 +109,14 @@ function JourneyCellImpl({ session, machineName, set, previous, isLatest, isSpot
           <span className={`jg-trend jg-trend--${trend}`}>{TREND_GLYPH[trend]}</span>
         )}
       </span>
+      {/* Gold star = max strength, red kaizen = room to improve. Absolutely
+          positioned, so it never shifts the two numbers, and hidden outright
+          on dense rows where there is no corner to give it. */}
+      {set.quality !== 2 && (
+        <span className={`jg-cell__mark jg-cell__mark--q${set.quality}`} aria-hidden="true">
+          <QualityMark quality={set.quality} size={10} />
+        </span>
+      )}
     </div>
   );
 }

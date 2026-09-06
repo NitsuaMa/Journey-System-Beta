@@ -133,6 +133,8 @@ interface RowProps {
   liveValue?: LiveSet;
   liveInactive: boolean;
   settingsDisplay: "inline" | "menu";
+  /** Every other row inside a section, for the zebra band. */
+  band?: boolean;
 }
 
 function RowImpl({
@@ -154,6 +156,7 @@ function RowImpl({
   liveValue,
   liveInactive,
   settingsDisplay,
+  band,
 }: RowProps) {
   const { machine } = row;
   const hasLive = !!live && !liveInactive;
@@ -197,6 +200,10 @@ function RowImpl({
       className={`jg-row ${isSelected ? "is-selected" : ""} ${hasLive ? "has-live" : ""} ${isFocus ? "is-focus" : ""} ${
         machine.sides ? "has-sides" : ""
       }`}
+      /* Banding is counted per section, not per DOM child, so a group
+         divider never eats a stripe and the rhythm restarts cleanly under
+         each heading. Purely presentational -- hence data, not a class. */
+      data-band={band ? "1" : "0"}
       role="row"
     >
       <div className="jg-machine" role="rowheader">
@@ -301,7 +308,7 @@ function RowImpl({
 /**
  * The ⋯ at the right edge of a machine cell in the dense grid. Opens a small
  * popover with the machine's settings (the same G/S pairs the inline rail
- * shows in the Active Session), the start → now readout and the note count.
+ * shows in the Active Session) and the note count.
  * Rendered through a portal: the sticky machine column lives inside an
  * overflow scroller, so anything positioned inside the cell would be clipped.
  */
@@ -676,9 +683,12 @@ export function JourneyGrid({
         <div className="jg-grid">
           {/* ---------- header row ---------- */}
           <div className="jg-row" role="row">
+            {/* Just the word. The "start → now" line under it described the
+                Analytics column, which the Active Session turns off -- so on
+                the screen a trainer actually stares at for an hour it was a
+                caption for something that was not on screen. */}
             <div className="jg-corner" role="columnheader">
               <span className="jg-corner__title">{title}</span>
-              <span className="jg-corner__sub">start → now</span>
             </div>
 
             {showStats && (
@@ -862,6 +872,7 @@ const SectionBlock = memo(function SectionBlock({
             liveValue={live?.values[row.machine.id]}
             liveInactive={!!section.inactive}
             settingsDisplay={settingsDisplay}
+            band={i % 2 === 1}
           />
         ))}
     </>

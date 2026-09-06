@@ -5,6 +5,45 @@ Design spec for `src/features/journey-grid/` — the sticky client-tracking grid
 
 Files: `src/features/journey-grid/`. Live prototype: the "Journey Grid" artifact (same code, compiled with Judy Daus's data).
 
+**v6 (Sep 6) — one channel per meaning.** The grid was spending three colour
+systems on two facts: a gold cell meant max strength, a green cell meant the
+load went up, and arrows meant reps moved. Two of those painted the same
+surface, so a trainer walking up to a machine could not read a row at a
+glance — which is the only thing this grid exists to do.
+
+Split, one channel per meaning:
+
+- **Cell fill = rep quality, and nothing else.** Green (max) / red (needs
+  improvement) / grey (completed). Nothing else in the grid paints a cell.
+- **Cell text = load movement, and nothing else.** A blue signed number with
+  a ▲/▼. The arrow is load-bearing: blue means "tappable" everywhere else in
+  this grid, and a bare blue "+2" reads as a control.
+
+The marks swapped with the colours. Max strength is a **gold star** — the one
+shape nobody needs a legend for. "Needs improvement" is the **red kaizen
+ring**, deliberately: kaizen is the circle you keep drawing and never finish,
+so the mark says "there is a better rep tomorrow" where the old cross said
+"this set failed". No client should open their journey to a wall of crosses.
+The mark is redundant with the fill on purpose — green-vs-red is exactly the
+pair a red-green colour-blind trainer cannot separate, so quality also
+carries a shape (★ vs ◯) and a texture (flat vs hatched). Any one of the
+three cues is enough on its own.
+
+Also in v6: **row banding and the focus trace**, so a machine can be followed
+to the right edge — banding is a neutral overlay rather than a background
+swap, because the background now belongs to quality; the machine in focus
+carries its orange rail edge across the whole grid. The **grid rail** reads
+as one sentence (`Show [All | Routine]`, a quiet count chip, `Edit Routine`,
+`‹ Older`) instead of three pieces of chrome describing one idea, and
+`start → now` is gone from the corner — it captioned the Analytics column,
+which the Active Session turns off. **Edit Routine** moved down from the
+session bar, off the edge it shared with DISCARD. Two in-session modals
+became one **machine sheet** (`features/equipment/MachineSheet.tsx`), opened
+by the machine's name, writing through `features/equipment/mutations.ts` so
+a mid-session change reaches the client's Equipment tab and Journal. And the
+session bar gained an **Assessment** slide-over onto the running 90-day
+check-in draft.
+
 **v5 (Sep 5) — auto-fit density in Recent Journey.** The profile grid now
 runs `fit="auto"`: it measures the height and width it is given and solves
 for the row height (44 → 26px) that puts EVERY loaded machine on screen and
@@ -52,11 +91,29 @@ The redesign runs on a **color budget**: color is spent only where it carries a 
 
 | Meaning | Color | Why |
 |---|---|---|
-| **Max strength set** (quality 3) | Brand hero orange `--brand-primary-1` | The one thing a trainer should spot from across the table. It is the brand's most energetic pigment and it appears nowhere else in the grid, so it always means "protocol followed perfectly". |
+| **Max strength set** (quality 3) | Green `--jg-q-max-fill` `#cae4ce` / `#104525` dark, plus a **gold ★** | The one thing a trainer should spot from across the room. The fill is the whole cell, so it survives at 26px rows and eight columns out. |
 | **Completed set** (quality 2) | Slate tint derived from `--brand-primary-3` | The baseline. A normal week of training should read *calm*. No yellow anywhere — amber reads as a warning, and "you did the work" is not a warning. |
-| **Poor quality set** (quality 1) | Plum `#a2457e` (light) / `#e07db8` (dark) + a diagonal hatch | Clearly "not right" without shouting. Plum sits opposite orange on the wheel, so the two states that matter never blur: ΔE 18.6 apart under protanopia, ~17 for full-color vision. The hatch means the state is readable in greyscale, print, or by a color-blind trainer. |
+| **Needs improvement** (quality 1) | Crimson `#c0203f` on `#f8bcc6`, a diagonal hatch, and a **red kaizen ◯** | Unmistakably "not right" without calling it a failure. The kaizen ring is the point: an open circle means there is another rep tomorrow. |
+| **Load movement** | Brand blue text, always with ▲/▼ | Text-level only — it never paints a cell, because the cell belongs to quality. The arrow is what stops a blue number from reading as a control. |
 | **Baseline / interactive** | Brand blue `--brand-accent-4` / `--brand-primary-2` | Everything a trainer *acts on* is blue: the LATEST column, the Today column, the Analytics header, a spotlighted date, focus rings, the row trace. Blue never encodes a result. |
+| **Now** | Hero orange `--jg-hero` | The set happening this second: the focus machine's name edge and its row trace. Orange means "here", never a result. |
 | Everything else | Slate neutrals at OKLCH hue 240 | Greys were generated at the brand slate's hue, so they belong to the palette instead of looking like a stock Tailwind grey. |
+
+**On green and red together.** Putting the two rated states on the one pair a
+protanope or deuteranope cannot distinguish is a real cost, taken knowingly
+because green/red/grey is what a sighted trainer reads fastest with no
+legend at all. It is paid for three ways: **shape** (★ vs ◯ vs nothing),
+**texture** (the poor cell's hatch), and **lightness** — the three fills
+step at least 1.15:1 apart from each other, so they stay distinct with the
+colour taken away entirely.
+
+That last one is not decoration and was not free. The first cut of this
+palette used prettier, paler tints and put the green max fill 0.002
+luminance from the grey completed fill: in greyscale, at distance, or for a
+trainer with achromatopsia, "max strength" and "ordinary set" were the same
+cell — while the entire premise of v6 is that the fill is what you read at
+a glance. The fills went deeper to fix it. `contrast.test.ts` now fails the
+build if a future nudge closes that gap again.
 
 Movement groups (Neck / Lower body / Push / Pull / Core) are available as **section divider rows** ("By group"), not as paint. The default order is the studio sequence (`DEFAULT_MACHINE_DISPLAY_ORDER`), unchanged.
 
@@ -66,14 +123,17 @@ Every historical cell shows the same two numbers in the same two places, so the 
 
 ```
 ┌──────────────┐
-│     116      │  weight — 17px semibold, tabular figures
+│   116 ▲2   ★ │  weight — 17px semibold, tabular figures
 │    12 ↓      │  reps (or ⏱ 1:30 for a timed static contraction) + trend glyph
 └──────────────┘
-   ▲ 3px quality edge on the left (only for max / poor)
-   ★ / ◐ glyph top-right (only for max / poor)
+   the whole fill is the rep quality — green / red / grey
+   ▲2 blue, only when the load moved vs the previous logged set
+   ★ gold (max) or ◯ red kaizen (needs work), top-right, never for a normal set
 ```
 
-- **Trend glyphs are monochrome on purpose.** `▲▼` = load changed vs the previous logged set, `↑↓` = same load, reps changed. Color says *quality*, the glyph says *direction* — one channel per meaning.
+- **The fill is the rating and nothing else.** A load increase used to tint the same cell green, which is the collision v6 removed.
+- **The corner mark is the backup channel, not the primary one.** Two states out of three carry one, so a normal week of training shows no glyphs at all. Hidden under 36px rows, where the row is single-line and the fill is the whole cell anyway.
+- **Trend glyphs are monochrome on purpose.** `↑↓` = same load, reps changed. Colour says *quality*, the glyph says *direction* — one channel per meaning.
 - **Empty cells** show a faint `—`, never a fill, so a sparse machine doesn't look busy.
 - **Timed static contractions** show `⏱ 1:30` in the reps slot. Same slot, different unit.
 
@@ -92,11 +152,23 @@ Every text/fill pairing was checked against WCAG 2.1 AA. Worst cases:
 
 | Pairing | Light | Dark |
 |---|---|---|
-| Weight text on any cell fill | 14.5 : 1 | 11.5 : 1 |
-| Reps text on any cell fill | 7.7 : 1 | 8.4 : 1 |
+| Weight text on any cell fill | 10.0 : 1 | 8.2 : 1 |
+| Reps text on any cell fill | 5.3 : 1 | 6.0 : 1 |
 | Muted labels on header band | 5.0 : 1 | 6.3 : 1 |
-| Orange text on max fill | 5.0 : 1 | 7.4 : 1 |
-| Plum text on poor fill | 6.3 : 1 | 7.8 : 1 |
+| Green text on max fill | 4.9 : 1 | 6.0 : 1 |
+| Blue load delta on max fill | 6.3 : 1 | 5.3 : 1 |
+| Crimson text on poor fill | 4.5 : 1 | 8.7 : 1 |
+| Gold ★ on max fill (non-text) | 3.5 : 1 | 6.2 : 1 |
+| Red kaizen ◯ on poor fill (non-text) | 3.5 : 1 | 5.7 : 1 |
+
+Every figure above is the WORSE of the pairing on a plain row and on a
+**banded** row, because half the rows carry the banding overlay and a
+pairing that only clears AA on unbanded rows clears it every other row.
+
+None of these are typed by hand any more. `contrast.test.ts` parses the
+token file, resolves the `var()` chains, and asserts all of it — 66 checks,
+both themes, banded and not — so retuning a token to something that fails AA
+fails the build instead of shipping.
 | Blue text on LATEST / Today fill | 7.7 : 1 | 7.7 : 1 |
 | Quality edge (non-text) on surface | ≥ 3.5 : 1 | ≥ 5.9 : 1 |
 
@@ -171,9 +243,11 @@ The input cell reads in the order the set happens:
 
 1. **Load** — pre-filled, `−`/`+` steppers in 2 lb increments, tap the number for the numeric keypad.
 2. **Outcome** — a large reps field (16px so iOS never zooms), with a `TSC` toggle that turns it into seconds under tension.
-3. **Quality** — Poor / Done / Max ★, using the same tokens the historical cell will use once saved.
+3. **Quality** — Needs work ◯ / Done / Max ★, using the same tokens and the same two marks the historical cell will use once saved. A trainer taps the mark they will read back tomorrow.
 
-Rows for today's routine are numbered and sit first; every other machine is folded under "Not in today's routine" with an *Add to session* button. The current machine (focus) gets an orange edge on its name and a blue ring on its input; `Next: …` in the session bar advances it.
+Rows for today's routine are numbered and sit first; every other machine is folded under "Not in today's routine" with an *Add to session* button. The current machine (focus) gets an orange edge on its name, an orange trace across its whole row, and a blue ring on its input; `Next: …` in the session bar advances it.
+
+Tapping a machine's **name** opens the unified machine sheet (`features/equipment/MachineSheet.tsx`) — high-importance notes, the dials, the reason box, the note composer, the set-up guide and the change history, in one bottom sheet. It replaced a settings dialog and a notes dialog that used to be two separate targets on the same row. Every write goes through `features/equipment/mutations.ts`, so a mid-session change lands on the client's Equipment tab and in their Journal.
 
 ### 2.7 Density
 
@@ -192,6 +266,7 @@ src/features/journey-grid/
   types.ts                  view models (JourneySession, JourneyRow, LiveSet, StatMetric…)
   stats.ts                  pure functions: computeRowStats, trend, summary, date formatting
   adapters.ts               WorkoutSession / ExerciseLog / Machine → view models
+  QualityMark.tsx           the gold star and the red kaizen ring
   JourneyCell.tsx           memoised historical cell
   StatCell.tsx              memoised Analytics cell
   LiveInputCell.tsx         Today's input cell

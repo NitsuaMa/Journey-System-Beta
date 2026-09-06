@@ -62,35 +62,58 @@
   /* 2 · Completed — the baseline. Neutral slate tint: "a set happened".   */
   --jg-q-done-fill:    #edeeef;
   --jg-q-done-edge:    #a5abb0;
-  /* 3 · Max strength — bronze/gold, and no longer the brand orange. Gold
-     is what a full inroad is worth, and handing it its own hue gives the
-     hero orange back to actions (Start Session) instead of having one
-     colour mean both "press this" and "they maxed out".                  */
-  --jg-q-max-fill:     #f9f0da;
-  --jg-q-max-edge:     #b07d18;   /* 3.3:1 on white — border weight only   */
-  --jg-q-max-text:     #875f0f;   /* 6.2:1 on white, 5.3:1 on its fill     */
+  /* 3 · Max strength — GREEN. The cell background is now the ONLY channel
+     that carries quality, so the three states have to separate on fill
+     alone: green / red / grey. Green is the state a trainer should find
+     from across the room.
+
+     The gold did not disappear — it moved to the ★ in the cell's corner.
+     That matters more than it looks: green-vs-red is the one pair a
+     red-green colour-blind trainer cannot split, so quality also carries a
+     SHAPE (★ = max, ◯ kaizen = needs work, nothing = ordinary) and the
+     poor cell keeps its diagonal hatch. Three cues, any one of which is
+     enough on its own.
+
+     The exact lightness of the three fills is load-bearing, not taste. The
+     first cut of this palette put green at the same luminance as the grey —
+     0.002 apart — so in greyscale, or at distance, or for a trainer with
+     achromatopsia, "max strength" and "ordinary set" were the same cell.
+     They now step apart by at least 1.15:1 fill-to-fill, in both themes,
+     and contrast.test.ts fails the build if a future nudge closes that gap.
+     If you retune these, run the test: the numbers below are measured, not
+     estimated.                                                            */
+  --jg-q-max-fill:     #cae4ce;   /* ink 11.9:1 · ink-2 6.4:1              */
+  --jg-q-max-edge:     #1a9c69;   /* 3.5:1 on white — border weight only   */
+  --jg-q-max-text:     #0a6644;   /* 7.9:1 on white, 4.9:1 on its fill     */
+  --jg-q-star:         #946609;   /* the gold ★ — 3.5:1 on the max fill    */
   /* 1 · Poor quality — crimson. The plum it replaces read as a decorative
      accent, which is the one thing an error must never look like. The
      mark is a CROSS, the edge is snapped and the fill is hatched, so
      colour is the last of four cues, never the only one.                 */
   --jg-q-poor:         #c0203f;   /* 5.9:1 on white, 5.0:1 on its fill     */
   --jg-q-poor-text:    #a3122f;   /* 7.6:1 on white, 6.4:1 on its fill     */
-  --jg-q-poor-fill:    #fdeaee;
+  --jg-q-poor-fill:    #f8bcc6;
   --jg-q-poor-hatch:   rgba(192, 32, 63, 0.15);
 
   /* Load movement ----------------------------------------------------- *
-     The one thing this methodology drives up. Emerald, because every other
-     hue in the grid is spoken for — orange is the brand's action, blue is
-     "you can act on this", gold is a full inroad — and because "the number
-     went up" is the one meaning a green reads as instantly and correctly.
+     Green used to mean "the load went up" AND paint the whole cell. Green
+     now means max strength, so load movement had to come off green and off
+     the cell background entirely: a load change is a signed number beside
+     the weight, nothing more. Blue, because it is the only hue left — and
+     always carried with a ▲/▼ so it never reads as a tappable control the
+     way the rest of the blue in this grid does.
+
      A drop is deliberately NOT red: dropping the pin is a coaching
      decision, not a failure, so it stays in the neutral ink.             */
-  --jg-gain:           #0f7a52;   /* 5.3:1 on white                        */
-  --jg-gain-fill:      #e3f5ec;
-  --jg-gain-edge:      #1a9c69;
+  --jg-delta-up:       var(--jg-live-text);   /* 9.1:1 white · 7.8:1 max fill · 7.5:1 poor fill */
   --jg-drop:           var(--jg-ink-muted);
 
   /* Misc ------------------------------------------------------------- */
+  /* Row banding. A NEUTRAL overlay, never a background swap -- the cell's
+     background is the rep quality now, and swapping it would delete the one
+     thing this grid exists to say. 3.5% ink costs about 0.7:1 of contrast
+     at the worst pairing, which leaves every one of them above AA. */
+  --jg-band:           rgba(18, 28, 35, 0.035);
   --jg-focus-ring:     var(--jg-live);
   --jg-sticky-shadow:  rgba(18, 28, 35, 0.10);
   --jg-dim:            0.38;      /* opacity of cells outside the lens     */
@@ -133,19 +156,19 @@
 
   --jg-q-done-fill:    #242c33;
   --jg-q-done-edge:    #455058;
-  --jg-q-max-fill:     #3a2d12;
-  --jg-q-max-edge:     #d9a441;   /* 7.4:1 on surface                      */
-  --jg-q-max-text:     #f0c874;   /* 10.6:1                                */
+  --jg-q-max-fill:     #104525;   /* green mixed into the dark surface     */
+  --jg-q-max-edge:     #3fca8e;   /* 8.0:1 on surface                      */
+  --jg-q-max-text:     #6fe0ab;   /* 10.6:1 on surface, 8.1:1 on its fill  */
+  --jg-q-star:         #f0c874;   /* the ★ stays gold — 8.3:1 on max fill  */
   --jg-q-poor:         #f2718c;   /* 7.6:1 on surface, 6.1:1 on fill       */
   --jg-q-poor-text:    #ffa8b8;   /* 10.2:1                                */
-  --jg-q-poor-fill:    #3a1c25;
+  --jg-q-poor-fill:    #320e16;
   --jg-q-poor-hatch:   rgba(242, 113, 140, 0.14);
 
-  --jg-gain:           #3fca8e;   /* 8.0:1 on surface                      */
-  --jg-gain-fill:      #123028;
-  --jg-gain-edge:      #2fae77;
+  --jg-delta-up:       var(--jg-live-text);   /* #8cc4f2 — 9.5:1 surface, 7.1:1 on max fill */
   --jg-drop:           var(--jg-ink-muted);
 
+  --jg-band:           rgba(230, 236, 242, 0.045);
   --jg-sticky-shadow:  rgba(0, 0, 0, 0.45);
   --jg-dim:            0.34;
 
@@ -176,17 +199,17 @@
     --jg-live-on:        #0b1015;
     --jg-q-done-fill:    #242c33;
     --jg-q-done-edge:    #455058;
-    --jg-q-max-fill:     #3a2d12;
-    --jg-q-max-edge:     #d9a441;
-    --jg-q-max-text:     #f0c874;
+    --jg-q-max-fill:     #104525;
+    --jg-q-max-edge:     #3fca8e;
+    --jg-q-max-text:     #6fe0ab;
+    --jg-q-star:         #f0c874;
     --jg-q-poor:         #f2718c;
     --jg-q-poor-text:    #ffa8b8;
-    --jg-q-poor-fill:    #3a1c25;
+    --jg-q-poor-fill:    #320e16;
     --jg-q-poor-hatch:   rgba(242, 113, 140, 0.14);
-    --jg-gain:           #3fca8e;
-    --jg-gain-fill:      #123028;
-    --jg-gain-edge:      #2fae77;
+    --jg-delta-up:       var(--jg-live-text);
     --jg-drop:           var(--jg-ink-muted);
+    --jg-band:           rgba(230, 236, 242, 0.045);
     --jg-sticky-shadow:  rgba(0, 0, 0, 0.45);
     --jg-dim:            0.34;
     color-scheme: dark;

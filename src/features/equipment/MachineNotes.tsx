@@ -27,6 +27,17 @@ export interface MachineNotesProps {
   journal?: JournalContext;
   onSaved?: (message: string) => void;
   onError?: (message: string) => void;
+  /**
+   * Wording for the flag. One field (`isImportant`), one effect (files as
+   * CRITICAL, so it reaches the pre-session briefing) — but two honest
+   * names for it. From the Equipment tab a trainer is usually reporting
+   * kit: "flag for maintenance". Mid-session they are usually recording
+   * something about the person on the machine — "hip pain if she goes too
+   * fast" is not maintenance, and calling it that would have taught
+   * trainers to leave the box unticked on exactly the notes that most need
+   * to reach the next trainer.
+   */
+  flagLabel?: string;
 }
 
 export function MachineNotes({
@@ -36,6 +47,7 @@ export function MachineNotes({
   journal,
   onSaved,
   onError,
+  flagLabel = "Flag for maintenance",
 }: MachineNotesProps) {
   const [draft, setDraft] = useState("");
   const [isMaintenance, setIsMaintenance] = useState(false);
@@ -156,7 +168,7 @@ export function MachineNotes({
                 checked={isMaintenance}
                 onChange={(e) => setIsMaintenance(e.target.checked)}
               />
-              Flag for maintenance
+              {flagLabel}
             </label>
             <span className="eq-actions__spacer" />
             <button
