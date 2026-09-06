@@ -326,6 +326,7 @@ export function RoutineBuilder({
             machineName={machineName}
             onApplyFix={applyFix}
             disabled={disabled}
+            defaultExpanded
           />
         ))}
       </div>
@@ -471,7 +472,13 @@ export function RoutineBuilder({
           {cfg.showFigure && (
             <RoutineFigure machineIds={ids} gender={client?.gender} previewMachineId={preview} />
           )}
+          {/* On an empty routine the seeding options lead, because the
+              useful next action is "start from the model B routine" or a
+              purpose template — not hand-picking seven machines out of
+              twenty. Once there is something to build on, the picker is what
+              the trainer reaches for, so it goes back on top. */}
           <div className="rb-rail__scroll">
+            {ids.length === 0 && ideas}
             {!disabled && (
               <div>
                 <div className="rb-sect__label">
@@ -481,7 +488,7 @@ export function RoutineBuilder({
                 {picker}
               </div>
             )}
-            {ideas}
+            {ids.length > 0 && ideas}
           </div>
         </aside>
       </div>

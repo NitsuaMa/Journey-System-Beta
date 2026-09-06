@@ -21,6 +21,11 @@
   flex-direction: column;
   min-height: 0;
   height: 100%;
+  /* Also grow as a flex child. Callers wrap the builder in `flex-1 min-h-0`
+     with no explicit height, where a percentage height is indefinite and the
+     builder ends short of the bottom — which is exactly the dead-space-under-
+     the-bar problem this app has already had to fix elsewhere. */
+  flex: 1 1 auto;
   background: var(--rb-bg);
   color: var(--rb-ink);
   font-family: var(--rb-font);
@@ -254,23 +259,64 @@
 /* ── Warning cards ──────────────────────────────────────────────────────── */
 
 .rb-warn {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.45rem 0.55rem;
   border-radius: var(--rb-radius-sm);
   font-size: 0.75rem;
   line-height: 1.35;
   border: 1px solid transparent;
+  overflow: hidden;
 }
 .rb-warn--avoid   { background: var(--rb-avoid-fill);   color: var(--rb-avoid);   border-color: var(--rb-avoid-edge); }
 .rb-warn--caution { background: var(--rb-caution-fill); color: var(--rb-caution); border-color: var(--rb-caution-edge); }
 
-.rb-warn__icon { flex: 0 0 auto; margin-top: 0.1rem; }
-.rb-warn__body { flex: 1 1 auto; min-width: 0; }
-.rb-warn__title { font-weight: 700; color: inherit; }
-.rb-warn__why { color: var(--rb-ink-2); margin-top: 0.15rem; }
-.rb-warn__escalate { color: var(--rb-ink-2); margin-top: 0.15rem; font-style: italic; }
-.rb-warn__src { color: var(--rb-ink-faint); font-size: 0.65rem; margin-top: 0.2rem; word-break: break-word; }
+/* The collapsed line. Everything here is what a trainer ACTS on; the
+   reasoning lives behind the chevron. */
+.rb-warn__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.35rem 0.2rem 0.45rem;
+  min-height: 2.25rem;
+}
+
+.rb-warn__toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  text-align: left;
+  padding: 0.25rem 0;
+  font-size: inherit;
+}
+.rb-warn__toggle:focus-visible { outline: 2px solid var(--rb-focus-ring); outline-offset: 1px; border-radius: 6px; }
+
+.rb-warn__icon { flex: 0 0 auto; }
+.rb-warn__title { font-weight: 700; color: inherit; white-space: nowrap; flex: 0 0 auto; }
+.rb-warn__pair {
+  color: var(--rb-ink-2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rb-warn__chev { flex: 0 0 auto; margin-left: auto; opacity: 0.7; transition: transform 120ms ease; }
+.rb-warn__chev--open { transform: rotate(180deg); }
+
+/* On a narrow screen the title is the thing that must survive, so the
+   machine pair is what goes — the coloured row edges already point at it. */
+@media (max-width: 620px) {
+  .rb-warn__pair { display: none; }
+}
+
+.rb-warn__quickfix { flex: 0 0 auto; }
+
+.rb-warn__detail { padding: 0 0.55rem 0.5rem 1.45rem; }
+.rb-warn__why { color: var(--rb-ink-2); margin: 0 0 0.25rem; }
+.rb-warn__escalate { color: var(--rb-ink-2); margin: 0 0 0.25rem; font-style: italic; }
+.rb-warn__src { color: var(--rb-ink-faint); font-size: 0.65rem; margin: 0.25rem 0 0; word-break: break-word; }
 
 .rb-warn__fixes { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.35rem; }
 

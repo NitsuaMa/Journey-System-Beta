@@ -92,7 +92,14 @@ export function RoutineTemplateForm({
 
       <div className="h-px bg-border" />
 
-      <div className="min-h-125 overflow-hidden rounded-xl border border-border">
+      {/* A definite height, not a min-height: the builder's own list scrolls
+          internally and its rail is a sibling column, so against an
+          indefinite parent it collapses to its content and the rail stops
+          filling. 32rem shows eight rows plus the header. */}
+      <div
+        className="overflow-hidden rounded-xl border border-border"
+        style={{ height: "32rem" }}
+      >
         <RoutineBuilder
           mode="template"
           machineIds={value.machineIds ?? []}
