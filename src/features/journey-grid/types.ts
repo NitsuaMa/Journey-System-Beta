@@ -103,4 +103,23 @@ export interface LiveColumn {
   onFocusMachine?: (machineId: string) => void;
   /** Weight stepper increment in lb (MedX-style machines move in 2 lb steps). */
   weightStep?: number;
+  /**
+   * Reorder mode: today's routine rows grow move/remove controls in place.
+   *
+   * Controls rather than drag, and that is forced by the grid's own
+   * architecture as much as chosen. `.jg-row` is `display: contents` so that
+   * every row's columns align against one shared `grid-template-columns` and
+   * three of its cells can be independently sticky. An element with
+   * `display: contents` generates no box, so dnd-kit's transform lands on
+   * nothing and its collision measurement has no rect to read. Making rows
+   * draggable would mean giving each one a real box and rebuilding the
+   * column alignment on subgrid — a large change to the one screen a trainer
+   * uses with a client standing in front of them.
+   *
+   * Two arrows and an X in a cell that already exists cost nothing, work
+   * under a thumb, and are the whole of what was asked for.
+   */
+  reorder?: boolean;
+  onMoveMachine?: (machineId: string, direction: -1 | 1) => void;
+  onRemoveMachine?: (machineId: string) => void;
 }

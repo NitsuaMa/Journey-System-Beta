@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, ChevronsRight, NotebookPen, Plus, MoreHorizontal } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronUp, ChevronsRight, MoreHorizontal, NotebookPen, Plus, X } from "lucide-react";
 import type { JourneyRow, JourneySession, JourneySet, LiveColumn, LiveSet, StatMetric } from "./types";
 import {
   computeRowStats,
@@ -235,7 +235,42 @@ function RowImpl({
             </span>
           )}
         </button>
-        {onNote && (
+        {live?.reorder && !liveInactive ? (
+          /* In reorder mode these take the note button's place rather than
+             sitting beside it: the sticky machine column is the narrowest
+             thing on the screen, and a trainer reordering is not reading
+             notes in the same breath. */
+          <span className="jg-machine__reorder">
+            <button
+              type="button"
+              className="jg-machine__move"
+              aria-label={`Move ${machine.name} earlier`}
+              disabled={orderNumber === 1}
+              onClick={() => live.onMoveMachine?.(machine.id, -1)}
+            >
+              <ChevronUp size={13} strokeWidth={2.75} />
+            </button>
+            <button
+              type="button"
+              className="jg-machine__move"
+              aria-label={`Move ${machine.name} later`}
+              disabled={orderNumber === live.routineMachineIds.length}
+              onClick={() => live.onMoveMachine?.(machine.id, 1)}
+            >
+              <ChevronDown size={13} strokeWidth={2.75} />
+            </button>
+            <button
+              type="button"
+              className="jg-machine__drop"
+              aria-label={`Remove ${machine.name} from today`}
+              onClick={() => live.onRemoveMachine?.(machine.id)}
+            >
+              <X size={13} strokeWidth={2.75} />
+            </button>
+          </span>
+        ) : null}
+
+        {onNote && !(live?.reorder && !liveInactive) && (
           <button
             type="button"
             className={`jg-machine__note ${machine.alert ? "is-alert" : machine.noteCount ? "has-notes" : ""}`}
@@ -680,7 +715,7 @@ export function JourneyGrid({
         aria-rowcount={sections.reduce((n, s) => n + 1 + (s.collapsed ? 0 : s.rows.length), 1)}
         aria-colcount={cols + 1 + (showStats ? 1 : 0) + (hasOlderColumn ? 1 : 0) + (live ? 1 : 0)}
       >
-        <div className="jg-grid">
+        <div className="jg-grid" data-reorder={live?.reorder ? "1" : "0"}>
           {/* ---------- header row ---------- */}
           <div className="jg-row" role="row">
             {/* Just the word. The "start → now" line under it described the

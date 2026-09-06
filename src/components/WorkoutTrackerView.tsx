@@ -112,7 +112,6 @@ import {
   findIncompleteLogs,
 } from "../lib/log-validation";
 import { ActiveSessionTimer } from "./ActiveSessionTimer";
-import { RoutineBuilder } from "../features/routine-builder";
 import { MachineSheet } from "../features/equipment/MachineSheet";
 /* Lazy, and the reason is measurable: the assessment panel is a 162 kB
    chunk (50 kB gzipped) that most sessions never open. A static import
@@ -1379,7 +1378,18 @@ export function WorkoutTrackerView({
   const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
   const [pendingAssignSession, setPendingAssignSession] =
     useState<WorkoutSession | null>(null);
-  const [isRoutinePanelOpen, setIsRoutinePanelOpen] = useState(false);
+  /**
+   * Reorder mode.
+   *
+   * This replaced a 20rem inline panel that rendered the whole shared builder
+   * above the grid. It worked, and it was the wrong shape for the moment it
+   * is used in: it covered the thing the trainer was reading, to let them do
+   * one small thing to it. Adding a machine already happens in place — the
+   * "+" on any machine not in today's routine — so what was actually missing
+   * was a way to change the order, and that fits in the cell the machine name
+   * already occupies.
+   */
+  const [isReorderMode, setIsReorderMode] = useState(false);
 
   /**
    * Every mid-session change to the machine list lands here, and lands
@@ -2800,6 +2810,17 @@ export function WorkoutTrackerView({
         focusMachineId: gridFocusMachineId,
         onFocusMachine: setFocusMachineOverride,
         weightStep: 2,
+        reorder: isReorderMode,
+        onMoveMachine: (id: string, direction: -1 | 1) => {
+          const at = activeMachineIds.indexOf(id);
+          const to = at + direction;
+          if (at === -1 || to < 0 || to >= activeMachineIds.length) return;
+          const next = [...activeMachineIds];
+          [next[at], next[to]] = [next[to], next[at]];
+          applySessionMachineIds(next);
+        },
+        onRemoveMachine: (id: string) =>
+          applySessionMachineIds(activeMachineIds.filter((m) => m !== id)),
       }
     : undefined;
 
@@ -3534,12 +3555,12 @@ export function WorkoutTrackerView({
           </span>
           <button
             type="button"
-            className={`jg-rail__edit ${isRoutinePanelOpen ? "is-on" : ""}`}
-            aria-expanded={isRoutinePanelOpen}
-            onClick={() => setIsRoutinePanelOpen((o) => !o)}
+            className={`jg-rail__edit ${isReorderMode ? "is-on" : ""}`}
+            aria-pressed={isReorderMode}
+            onClick={() => setIsReorderMode((o) => !o)}
           >
             <Settings2 className="w-3 h-3 shrink-0" strokeWidth={2.5} />
-            {isRoutinePanelOpen ? "Done" : "Edit Routine"}
+            {isReorderMode ? "Done" : "Reorder"}
           </button>
           <button
             type="button"
@@ -3570,22 +3591,6 @@ export function WorkoutTrackerView({
             )}
           </div>
         </div>
-
-        {/* Reordering happens here, in place, above the list it reorders.
-            Drag a machine and the grid behind it has already changed — the
-            trainer's input is the answer, not a proposal. */}
-        {currentSession && isRoutinePanelOpen && (
-          <div className="jg-rail__panel">
-            <RoutineBuilder
-              mode="in-session"
-              machineIds={activeMachineIds}
-              onChange={handleSaveSessionMachineIds}
-              machines={machines}
-              client={selectedClient}
-              established
-            />
-          </div>
-        )}
 
         {gridLive && (
           <JourneyGrid
