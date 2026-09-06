@@ -1,0 +1,156 @@
+A/B Routines - How to Optimize Programming
+When considering an optimal A/B routine for the general population, we must
+first remind ourselves that hypertrophy is muscle fiber specific. Meaning only
+those muscle fibers recruited/activated by an exercise will benefit from a
+training stimulus. In other words, if we are implementing a full body program,
+then an individual workout should target as many muscle fibers (i.e. muscle
+groups) as possible.
+The next critical consideration to make is that long-term hypertrophy is only
+accomplished with an at least twice per week stimulus (i.e. minimum effective
+dose). This, in connection with the fact that hypertrophy is muscle fiber
+specific, means that similar muscle fibers/regions must be stimulated twice
+per week. If we program with “too much” variety, we will dilute the required
+frequency. For instance, if we target the pecs directly in an A routine but then
+neglect them in the B routine, the net effect will be that we are only truly
+targeting those fibers once per week. While this may be enough to ensure
+strength gains over time, it will likely fall short in terms of continually building
+muscle beyond a certain level of development.
+Importantly, strength is not an adaptation itself but rather an outcome of the
+following six adaptations:
+● Improved coordination
+● Increased Motor Unit Recruitment (MUR)
+● Decreased antagonist coactivation
+● Hypertrophy
+● Increased tendon stiffness
+● Lateral force transmission
+You’ll note that one of the adaptations of strength is the increase in muscle
+tissue, or hypertrophy. Hypertrophy is its own adaptation and it contributes to
+the outcome that is increased strength. While most of the adaptations that
+underpin strength are more easily achieved and with less frequency
+(especially the first three CNS adaptations), hypertrophy requires a twice per
+week stimulus over the long term. Importantly, muscle tissue will absolutely
+be built with a once per week frequency, especially in a more novice subject,
+but the most optimal approach is to target the same muscle fibers more
+frequently.
+In considering the points outlined above, the ideal training program would
+consist of as many exercises as can be recovered from that target as many
+muscle fibers as possible. And this program would repeat with zero variation,
+indefinitely. But this approach is not realistic as most clients will expect and
+appreciate variety. Unfortunately, people are too easily “bored” with exercise
+programs even if they would produce better long-term results. Because of
+this, we must find ways to be creative with our programming to accomplish
+the following:
+● Coverage of the desired target areas (most will be full body)
+● Variety to satisfy/motivate the client
+● Consistency of the stimulus (frequency of similar muscle regions)
+One last concept to be aware of before presenting an optimal A/B routine is
+what’s known as regional hypertrophy. Essentially, with regional hypertrophy,
+there is an additive benefit for novice trainees due to their lack of muscular
+development. This benefit allows more muscle regions to be stimulated from
+a given exercise, especially compound movements, than would be in a more
+advanced subject. For purposes of illustrating this point, let’s consider the
+Chest Press exercise. In a novice subject, the Chest Press will stimulate (and
+therefore grow) the muscles of the chest, shoulders, and triceps. In an
+advanced subject the Chest Press will likely only grow one of those muscle
+groups because the others will have been fully developed to the extent they
+can by that movement. This is great news for beginners because they will get
+“more bang for their buck” on fewer movements. It also helps us with
+programming as we can cover more area with compound exercises (e.g. Big
+5) and have a better chance of actually stimulating most of the muscles in
+the body. The other side of this is that advanced subjects will likely require
+more specific single joint exercises to ensure a stimulus.
+Where to start:
+During the consultation, the client will most likely be introduced to three
+exercises. These three exercises will become a core part of the client’s routine
+moving forward . Eventually they can be more strategically programmed to
+benefit an advanced trainee, but in the early stages we will build upon these
+movements:
+1. Leg Press
+2. Compound Row
+3. Lumbar
+How to evolve:
+(Importantly, the following program is just an example meant to give an idea of how to view
+long term programming). Now, let’s look at what an optimal A/B routine might
+eventually evolve into and discuss some of the reasoning behind the
+exercises and placement chosen. Keep in mind this routine would be
+developed after a client has been with us for at least two months:
+A routine B routine
+ADD(f)/LC(m) ABD
+SD(f)/CP(m) Pd
+CR LC (f)/Flye(m)
+TR/Abs LE
+OH(f)/LR(m) SR
+PO CP(f)/OH(m)
+LP Lumb
+f = female; m = male
+The first thing to note is that there are 7 exercises in each routine. While there
+is nothing inherently “magical” about that number, it has been consistently
+proven to be achievable by hundreds of MSF clients over the years.
+‘Achievable’ here means that they can be completed in the allotted time and
+with the requisite intensity to ensure a stimulus. Remember, 20 minutes is the
+MINIMUM time, not the standard. If we are to get consistent long-term results
+for our clients, most sessions will exceed the 20 minute mark.
+The next thing we should point out here is that there are a few instances
+where specific ‘female’ exercises are programmed and specific ‘male’
+exercises are programmed. This is simply based on the fact that over the
+years, these groups have generally requested certain areas of the body be
+targeted. For instance, females have generally requested more abdominal
+and hip work, whereas males have requested more chest, shoulders, and low
+back. At the end of the day, we don’t have to strictly adhere to these
+differentiations outlined above. In fact, it would be more advisable to refer to
+the specific request of each client. In this case, and for more examples please
+see the Exercise Selection Template document located here:
+Academy - Programming and Progression 7 - Exercise Selection Template
+.
+The most unique attribute of the A/B routines posted above is in the attempt
+to provide overlapping coverage of muscle regions, while also creating
+variety for the clients. For instance, in an effort to ensure that the entirety of
+the upper back muscles are trained in both sessions, the A routine includes
+the Compound Row (rear delt, traps, rhomboids, biceps) and Pullover (lats).
+The B routine, then, includes the Simple Row (rear delt, traps, rhomboids) and
+Pulldown (lats, biceps). Another example would be that of the muscles of the
+lower body. In the A routine, we rely on the Leg Press (quads, glutes, hips) and
+in the B routine we have programmed the Leg Extension (quads), Abduction
+(glutes, hips), and Lumbar (glutes, adductors).
+Lumbar and Leg Press:
+Also notice that the Lumbar and the Leg Press are eventually split and
+become part of two different workouts. It has been our experience that these
+two exercises are better when they are not performed in the same workout.
+There tends to be some degree of “interference” in the lower back created
+during the Lumbar and then sensed during the Leg Press. This does not mean
+that these two exercises can never be performed in the same workout or that
+it is inherently dangerous. It is just that we can proactively prevent this from
+becoming an issue by performing Lumbar with Leg Extension instead of Leg
+Press. So we will introduce the Lumbar and Leg Press together during the
+consult but then eventually split them up as the subject becomes stronger
+and more proficient at training intensely. However, if these two exercises are
+performed in the same workout then make sure to put as much space
+between them to minimize any overlapping lower back sensations. We
+should never perform these two exercises consecutively unless to use the
+Lumbar as a much lighter, therapeutic modality.
+At this point, one might wonder, “what is to be done with the other machines
+in the studio”? The answer to that is quite simple. Find any and every
+opportunity to use them to tailor the workout experience to the client. This is
+also where the Exercise Selection Template linked above will come into play. If
+for instance, we had a client that wanted to target their arms specifically, then
+using the Biceps Curl and/or Triceps Extension machines would be a priority.
+These can easily be added on to the existing routines above if time permits or
+used to replace a lower priority muscle group. Just make sure that the arms,
+in this case, are being targeted in both workouts in keeping with the twice per
+week frequency requirement.
+One last point to make here is that these routines should take at least 8 weeks
+(or 16 sessions) to fully build out. It is in our and the client’s best interest to
+slowly introduce these movements over time rather than all at once. There is
+a learning curve to our training methodology and the focus needs to be on
+the quality of the execution and tolerance of intensity. This is only
+complicated by constantly adding in new movement patterns. Plus, it creates
+an expectation of the client that exercise variety is somehow necessary. They
+will come to believe that the next new machine is “the one they’ve been
+missing”, when it is likely their execution and intensity that are holding them
+back. Remember, they will begin with an A routine that will take two to three
+weeks alone to begin to master before then gradually building out the B
+routine. The B routine should be established by replacing one
+complementary exercise of the A routine every week or so until the new
+routine has been completed in its entirety. Please reference the article
+entitled Exercise Selection and Long-Term Programming for more insight
+on how to progress various client types over time.
