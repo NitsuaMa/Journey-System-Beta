@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { onSnapshot, query, where } from "firebase/firestore";
 import { studioDateKey } from "../../lib/studio-time";
-import { repliesRef, requestsRef } from "./requests";
+import { isExpired, repliesRef, requestsRef } from "./requests";
 import type { TaskRequest, TaskRequestReply } from "./requests";
 
 function millis(v: unknown): number {
@@ -23,6 +23,8 @@ function millis(v: unknown): number {
 export interface UseStudioRequestsResult {
   /** Everything still needing someone. Newest first. */
   open: TaskRequest[];
+  /** Open but past their own expiry - the asks nobody got to. */
+  expired: TaskRequest[];
   /** Recently resolved, for the "what happened to my ask" question. */
   recentlyResolved: TaskRequest[];
   loading: boolean;
@@ -64,10 +66,29 @@ export function useStudioRequests(
 
   const today = studioDateKey(new Date()) ?? "";
 
+  /**
+   * Re-evaluated on a timer, not only when the collection changes.
+   *
+   * An expiry is the one thing on this board that becomes true with NOTHING
+   * being written - a request posted "until close" is still the same document
+   * at 9pm as it was at 8. Without a tick, a board left open on the front desk
+   * iPad would keep showing it until somebody happened to post something else.
+   * Sixty seconds is finer than anyone needs and costs one render.
+   */
+  const [tick, setTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setTick(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const open = useMemo(
     () =>
       requests
         .filter((r) => r.status === "open")
+        // Aged out by its author's own choice. Not deleted and not resolved -
+        // it is still in the collection and a manager can still find it, it
+        // has simply stopped being something to act on.
+        .filter((r) => !isExpired(r, tick))
         // Urgent floats, then newest. A "floating request" lane that buries a
         // cover request for tomorrow under three chatty questions is not doing
         // its job.
@@ -75,7 +96,7 @@ export function useStudioRequests(
           const rank = (r: TaskRequest) => (r.priority === "urgent" ? 0 : 1);
           return rank(a) - rank(b) || millis(b.createdAt) - millis(a.createdAt);
         }),
-    [requests],
+    [requests, tick],
   );
 
   const recentlyResolved = useMemo(
@@ -92,7 +113,16 @@ export function useStudioRequests(
     [requests, today],
   );
 
-  return { open, recentlyResolved, loading };
+  /** Open, but past their own expiry. What nobody got to. */
+  const expired = useMemo(
+    () =>
+      requests
+        .filter((r) => r.status === "open" && isExpired(r, tick))
+        .sort((a, b) => millis(b.createdAt) - millis(a.createdAt)),
+    [requests, tick],
+  );
+
+  return { open, expired, recentlyResolved, loading };
 }
 
 /**

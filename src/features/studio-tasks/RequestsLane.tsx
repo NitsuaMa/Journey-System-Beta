@@ -1,7 +1,7 @@
 /**
  * The floating lane: ad-hoc asks and low-priority studio comms.
  *
- * Round: Settings tiers & Task Board, Sep 2026.
+ * Round: Settings tiers & Task Board, Sep 2026. Expiry + reactions Sep 6.
  *
  * SITS ABOVE THE CHECKLIST, NOT MIXED INTO IT
  * -------------------------------------------
@@ -16,12 +16,23 @@
  * empty lane renders as a single line with the composer, so the checklist -
  * which is what most trainers open this screen for - is still the first thing
  * under the thumb.
+ *
+ * WHY A SHELF LIFE AND ONE-TAP REPLIES (Sep 6)
+ * --------------------------------------------
+ * Both exist to stop the lane rotting, which is the failure mode of every
+ * board like it. Requests that stopped mattering hours ago keep occupying the
+ * top of the screen until the lane becomes something people scroll past - and
+ * once it is scrolled past, the cover request that DID matter is missed and
+ * everyone goes back to the group text. An expiry lets a request retire
+ * itself; a preset reaction makes acknowledging one cost a single tap instead
+ * of open-thread-type-send, which is the other half of the same problem.
  */
 
 import { useState } from "react";
 import {
   Check,
   ChevronDown,
+  Clock,
   HandHelping,
   HelpCircle,
   Megaphone,
@@ -35,10 +46,16 @@ import { useToast } from "../../contexts/ToastContext";
 import {
   addRequestReply,
   createRequest,
+  EXPIRY_LABEL,
+  expiryMillis,
+  reactionSummary,
   REQUEST_KIND_HINT,
   REQUEST_KIND_LABEL,
+  REQUEST_REACTIONS,
   resolveRequest,
   setRequestClaim,
+  toggleRequestReaction,
+  type ExpiryChoice,
   type RequestKind,
   type TaskRequest,
 } from "./requests";
@@ -55,6 +72,7 @@ const KIND_ICON: Record<RequestKind, typeof MessageSquare> = {
 };
 
 const KINDS: RequestKind[] = ["cover", "question", "heads-up", "help", "other"];
+const EXPIRIES: ExpiryChoice[] = ["none", "today", "3d", "1w"];
 
 function ago(v: unknown): string {
   const ms = (v as { toMillis?: () => number } | undefined)?.toMillis?.();
@@ -65,6 +83,23 @@ function ago(v: unknown): string {
   const hrs = Math.round(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.round(hrs / 24)}d ago`;
+}
+
+/**
+ * How long this has left, phrased as a deadline rather than a timestamp.
+ *
+ * "3h left" answers the question someone actually has standing in front of
+ * the board; "expires 17:00" makes them do the subtraction, and they will not.
+ */
+function timeLeft(v: unknown): string | null {
+  const ms = expiryMillis(v);
+  if (!ms) return null;
+  const mins = Math.round((ms - Date.now()) / 60000);
+  if (mins <= 0) return "expired";
+  if (mins < 60) return `${mins}m left`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h left`;
+  return `${Math.round(hrs / 24)}d left`;
 }
 
 export interface RequestsLaneProps {
@@ -80,6 +115,7 @@ export function RequestsLane({ studioId, author }: RequestsLaneProps) {
 
   const [composing, setComposing] = useState(false);
   const [kind, setKind] = useState<RequestKind>("cover");
+  const [expiry, setExpiry] = useState<ExpiryChoice>("none");
   const [title, setTitle] = useState("");
   const [threadId, setThreadId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -104,10 +140,11 @@ export function RequestsLane({ studioId, author }: RequestsLaneProps) {
   const post = async () => {
     if (!title.trim() || !studioId || !author) return;
     await run(
-      () => createRequest({ studioId, author, kind, title }),
+      () => createRequest({ studioId, author, kind, title, expiry }),
       "Posted to the board.",
     );
     setTitle("");
+    setExpiry("none");
     setComposing(false);
   };
 
@@ -121,7 +158,7 @@ export function RequestsLane({ studioId, author }: RequestsLaneProps) {
         claimed: !mine,
       });
       if (!mine) {
-        // Best-effort by design — notify() swallows its own failures, so a
+        // Best-effort by design - notify() swallows its own failures, so a
         // claim never fails because the bell did.
         await notify({
           to: r.createdBy.id,
@@ -147,6 +184,30 @@ export function RequestsLane({ studioId, author }: RequestsLaneProps) {
         link: { view: "studio-tasks" },
       });
     }, "Closed.");
+  };
+
+  /**
+   * Reactions do not toast and do not notify.
+   *
+   * A nod is not an event. Sending the author a bell every time somebody taps
+   * "Got it" would put five notifications behind one heads-up, which is the
+   * exact volume problem notify.ts's four filters exist to prevent - and a
+   * toast for your own tap tells you what you can already see.
+   */
+  const react = async (r: TaskRequest, id: (typeof REQUEST_REACTIONS)[number]["id"]) => {
+    if (!studioId || !author) return;
+    const on = !r.reactions?.[id]?.[author.id];
+    try {
+      await toggleRequestReaction({
+        studioId,
+        requestId: r.id,
+        reaction: id,
+        author,
+        on,
+      });
+    } catch (err) {
+      console.error("Reaction failed:", err);
+    }
   };
 
   return (
@@ -188,6 +249,27 @@ export function RequestsLane({ studioId, author }: RequestsLaneProps) {
               );
             })}
           </div>
+
+          {/* No expiry stays the default and stays FIRST: most asks have no
+              honest deadline, and a picker that defaults to one would put a
+              made-up shelf life on every request on the board. */}
+          <div className="stq__kinds" role="group" aria-label="How long this stands">
+            <span className="stq__expiry-label">
+              <Clock size={12} aria-hidden /> Stands for
+            </span>
+            {EXPIRIES.map((e) => (
+              <button
+                key={e}
+                type="button"
+                className="stq__kind"
+                aria-pressed={expiry === e}
+                onClick={() => setExpiry(e)}
+              >
+                {EXPIRY_LABEL[e]}
+              </button>
+            ))}
+          </div>
+
           <div className="stq__row">
             <input
               className="stq__input"
@@ -228,6 +310,8 @@ export function RequestsLane({ studioId, author }: RequestsLaneProps) {
             const Icon = KIND_ICON[r.kind] ?? MessageSquare;
             const mine = r.claimedBy?.id === author?.id;
             const isAuthor = r.createdBy.id === author?.id;
+            const left = timeLeft(r.expiresAt);
+            const reactions = reactionSummary(r);
             return (
               <li
                 key={r.id}
@@ -246,6 +330,12 @@ export function RequestsLane({ studioId, author }: RequestsLaneProps) {
                         ? ` · ${r.replyCount} repl${r.replyCount === 1 ? "y" : "ies"}`
                         : ""}
                       {r.claimedBy ? ` · ${r.claimedBy.name} has this` : ""}
+                      {left && (
+                        <span className="stq__ttl">
+                          <Clock size={10} aria-hidden />
+                          {left}
+                        </span>
+                      )}
                     </span>
                   </span>
 
@@ -281,6 +371,36 @@ export function RequestsLane({ studioId, author }: RequestsLaneProps) {
                     <ChevronDown size={12} aria-hidden />
                     Reply
                   </button>
+                </div>
+
+                {/* One row, always visible, never behind a menu. A reaction
+                    that costs a tap to reveal costs the same as typing. */}
+                <div className="stq__reacts" role="group" aria-label="Quick reply">
+                  {REQUEST_REACTIONS.map((preset) => {
+                    const bucket = r.reactions?.[preset.id];
+                    const count = bucket ? Object.keys(bucket).length : 0;
+                    const active = Boolean(author && bucket?.[author.id]);
+                    const who = reactions
+                      .find((x) => x.id === preset.id)
+                      ?.names.filter(Boolean)
+                      .join(", ");
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        className="stq__react"
+                        aria-pressed={active}
+                        title={who || preset.label}
+                        onClick={() => void react(r, preset.id)}
+                        disabled={!author}
+                      >
+                        {preset.label}
+                        {count > 0 && (
+                          <span className="stq__react-n">{count}</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {threadId === r.id && (

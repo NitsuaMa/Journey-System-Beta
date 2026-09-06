@@ -112,7 +112,7 @@ import {
 import { ActiveSessionTimer } from "./ActiveSessionTimer";
 import { SessionRoutineManagerModal } from "./SessionRoutineManagerModal";
 import { SessionJournalSidebar } from "./journal/SessionJournalSidebar";
-import { BriefingScreen } from "./BriefingScreen";
+import { BriefingScreen } from "../features/briefing";
 import { VictoryHUDScreen } from "./VictoryHUDScreen";
 import { ConsultationSetupWizard } from "./ConsultationSetupWizard";
 

@@ -1,0 +1,552 @@
+/* ==========================================================================
+   Pre-Session Briefing — layout
+   --------------------------------------------------------------------------
+   Round: Sep 6 2026 UI pass.
+
+   Touch-first for a 10"–13" tablet: nothing tappable under 44px, one ordered
+   column, the loud action pinned where a thumb already is. Plain CSS with the
+   feature's own tokens, matching how Equipment, the Journey Grid, the Studio
+   To-Do and the Trainer Profile are built, rather than the wall of utility
+   classes this screen used to be — which is how it ended up with #38BDF8 and
+   #0A548B typed in by hand in four places each, a dark-mode pair on some
+   elements and not others, and five different corner radii.
+
+   ONE SCROLLER, AND IT IS NOT THIS FILE'S
+   ---------------------------------------
+   The screen used to declare `min-h-screen` and its own `overflow-y-auto`
+   INSIDE AppContent's <main>, which is already the app's scroller for the
+   workouts view. Two nested scrollers plus a forced viewport-height floor is
+   why the START button sat under the bottom nav: the inner box was as tall as
+   the screen no matter how much room <main> had actually given it, so its
+   footer was pushed past the fold and the outer scroller had nothing left to
+   reveal. The same fix the Catalog took on Sep 4 — collapse to one scroller
+   and let the shell bound the view.
+
+   So: `.br` fills its parent and does not scroll. The CTA is `position:
+   sticky` at the bottom of the page flow, which keeps it reachable without
+   claiming a height the layout then has to work around.
+   ========================================================================== */
+@import "./briefing.tokens.css";
+
+/* min-height, NOT flex:1 + min-height:0. <main> is a scrolling flex column;
+   a child that takes `flex: 1` there is capped at the container's height and
+   its overflow is simply clipped, because the child is not itself a scroller.
+   Growing past 100% is what gives <main> something to scroll. */
+.br {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: var(--br-bg);
+  color: var(--br-ink);
+}
+
+.br *,
+.br *::before,
+.br *::after { box-sizing: border-box; }
+
+/* The reading column. Capped so a 13" landscape tablet does not stretch a
+   goal quote to 1100px, centred so it does not hug the left bezel. */
+.br__page {
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 14px 14px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+@media (min-width: 900px) {
+  .br__page { padding: 20px 20px 0; gap: 16px; }
+}
+
+/* --- shared surfaces -------------------------------------------------- */
+
+.br-card {
+  background: var(--br-surface);
+  border: 1px solid var(--br-border);
+  border-radius: var(--br-radius-lg);
+  box-shadow: 0 1px 2px var(--br-shadow);
+  padding: 16px;
+}
+
+.br-section { display: flex; flex-direction: column; gap: 10px; }
+
+.br-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px;
+  min-height: 32px;
+}
+
+.br-section__title {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--br-ink-2);
+}
+
+.br-section__title svg { color: var(--br-live); flex: none; }
+
+.br-section__hint {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--br-ink-muted);
+}
+
+/* Small caps label used above every field and inside every inset. */
+.br__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--br-ink-muted);
+}
+
+/* --- 1. client hero ---------------------------------------------------- */
+
+.br__hero { display: flex; flex-direction: column; gap: 12px; }
+
+.br__hero-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.br__name {
+  margin: 0;
+  font-family: var(--font-display, inherit);
+  font-style: italic;
+  font-weight: 900;
+  text-transform: uppercase;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  font-size: clamp(22px, 3.4vw, 30px);
+  color: var(--br-ink);
+}
+
+.br__meta {
+  margin: 4px 0 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--br-ink-muted);
+}
+
+.br__close {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--br-border);
+  border-radius: 999px;
+  background: var(--br-surface-2);
+  color: var(--br-ink-2);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.br__close:hover { background: var(--br-surface-3); color: var(--br-ink); }
+.br__close:focus-visible { outline: 2px solid var(--br-focus-ring); outline-offset: 2px; }
+
+.br__flags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* An inset panel inside the hero: the goal, and each coaching focus. */
+.br__inset {
+  border: 1px solid var(--br-border);
+  border-radius: var(--br-radius);
+  background: var(--br-surface-2);
+  padding: 12px 14px;
+}
+
+.br__quote {
+  margin: 6px 0 0;
+  font-style: italic;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--br-ink-2);
+}
+
+/* --- 2. before you start ---------------------------------------------- */
+
+/* The one place on this screen allowed to shout. A trainer is ten seconds
+   from loading a machine; a contraindication that reads like a form label has
+   failed at the only job it has. */
+.br__critical {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--br-critical-border);
+  border-left: 4px solid var(--br-critical);
+  border-radius: var(--br-radius);
+  background: var(--br-critical-fill);
+  padding: 12px 14px;
+}
+
+.br__critical .br__label { color: var(--br-critical); }
+
+.br__focus {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--br-border);
+  border-radius: var(--br-radius);
+  background: var(--br-surface-2);
+  padding: 12px 14px 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.br__focus-edge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+}
+
+.br__focus-when {
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--br-ink-faint);
+}
+
+.br__focus-target {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--br-live-text);
+}
+
+/* --- 3. routine picker -------------------------------------------------- */
+
+.br__routines {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.br__routine {
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 10px 14px;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--br-border);
+  border-radius: var(--br-radius);
+  background: var(--br-surface);
+  color: var(--br-ink-muted);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.br__routine:hover { border-color: var(--br-border-strong); }
+.br__routine:focus-visible { outline: 2px solid var(--br-focus-ring); outline-offset: 2px; }
+
+/* Selection is carried by border + fill + ink, not by a glow. A 0.25-alpha
+   cyan box-shadow reads as "focused" to some people and as "disabled" to
+   others under gym lighting; three redundant cues do not. */
+.br__routine[aria-pressed="true"] {
+  border-color: var(--br-live);
+  background: var(--br-live-fill);
+  color: var(--br-ink);
+}
+
+.br__routine-name {
+  font-family: var(--font-display, inherit);
+  font-style: italic;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: inherit;
+}
+
+.br__routine-sub {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--br-ink-muted);
+}
+
+.br__compare {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+@media (min-width: 640px) {
+  .br__compare { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* --- 4. execution sequence ---------------------------------------------- */
+
+.br__seq { display: flex; flex-direction: column; gap: 6px; }
+
+.br__seq-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--br-radius);
+}
+
+.br__seq-item[data-dragging="true"] {
+  position: relative;
+  z-index: 50;
+  background: var(--br-surface);
+  box-shadow: 0 12px 32px var(--br-shadow);
+  outline: 2px solid var(--br-live);
+}
+
+/* Grip and remove: 44px each, and only present while editing. */
+.br__seq-handle,
+.br__seq-remove {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--br-radius);
+  cursor: grab;
+  touch-action: none;
+  background: var(--br-surface-2);
+  color: var(--br-ink-muted);
+  transition: background 120ms ease, color 120ms ease;
+}
+.br__seq-handle:active { cursor: grabbing; }
+.br__seq-handle:hover { background: var(--br-surface-3); color: var(--br-ink); }
+
+.br__seq-remove {
+  cursor: pointer;
+  background: var(--br-critical-fill);
+  color: var(--br-critical);
+}
+.br__seq-remove:hover { border-color: var(--br-critical-border); }
+.br__seq-handle:focus-visible,
+.br__seq-remove:focus-visible { outline: 2px solid var(--br-focus-ring); outline-offset: 2px; }
+
+.br__seq-body { flex: 1; min-width: 0; }
+.br__seq-body[data-inert="true"] { pointer-events: none; }
+
+/* Text button, blue, 44px tall. Used for EDIT ROUTINE. */
+.br__link-btn {
+  min-height: 44px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--br-live-fill);
+  color: var(--br-live-text);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.br__link-btn:hover { background: var(--br-surface-3); }
+.br__link-btn:focus-visible { outline: 2px solid var(--br-focus-ring); outline-offset: 2px; }
+
+.br__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 20px;
+  border: 1px dashed var(--br-border-strong);
+  border-radius: var(--br-radius-lg);
+  background: var(--br-surface);
+  text-align: center;
+}
+
+.br__empty-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--br-ink-muted);
+  max-width: 26rem;
+}
+
+.br__add {
+  margin-top: 6px;
+  border: 1px dashed var(--br-border-strong);
+  border-radius: var(--br-radius);
+  background: var(--br-live-fill);
+  padding: 14px;
+}
+
+.br__add-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+.br__add-item {
+  min-height: 40px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--br-border-strong);
+  border-radius: 999px;
+  background: var(--br-surface);
+  color: var(--br-ink);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.br__add-item:hover { background: var(--br-surface-2); }
+.br__add-item svg { color: var(--br-live); }
+.br__add-item:focus-visible { outline: 2px solid var(--br-focus-ring); outline-offset: 2px; }
+
+/* --- 5. check-in --------------------------------------------------------- */
+
+.br__checkin { display: flex; flex-direction: column; gap: 16px; }
+
+.br__checkin-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.br__optional {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--br-ink-faint);
+}
+
+.br__field { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.br__field legend { padding: 0; }
+
+.br__grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+
+@media (min-width: 640px) {
+  .br__grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* The pill group. Four of these used to be copy-pasted with the same 12-line
+   class string; they are one component and one rule now. */
+.br__pills { display: flex; gap: 8px; }
+
+.br__pill {
+  flex: 1;
+  min-height: 48px;
+  border: 1px solid var(--br-border-strong);
+  border-radius: var(--br-radius);
+  background: var(--br-surface);
+  color: var(--br-ink-2);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.br__pill:hover { background: var(--br-surface-2); }
+.br__pill:focus-visible { outline: 2px solid var(--br-focus-ring); outline-offset: 2px; }
+
+.br__pill[aria-pressed="true"] {
+  border-color: transparent;
+  background: var(--br-live);
+  color: var(--br-live-on);
+}
+
+.br__textarea {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  padding: 12px 14px;
+  border: 1px solid var(--br-border);
+  border-radius: var(--br-radius);
+  background: var(--br-surface);
+  color: var(--br-ink);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.br__textarea::placeholder { color: var(--br-ink-faint); }
+.br__textarea:focus-visible { outline: 2px solid var(--br-focus-ring); outline-offset: 1px; }
+
+/* --- 6. the one loud action --------------------------------------------- */
+
+/* Sticky, not fixed, and not a flex footer. Fixed would need the bottom nav's
+   height hard-coded here to avoid sitting under it — the exact coupling that
+   broke when the nav changed height at the sm breakpoint. Sticky rides the
+   page's own scroller and stops where the content stops. */
+.br__cta-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  padding: 12px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+  margin-top: 4px;
+  background: linear-gradient(
+    to top,
+    var(--br-bg) 62%,
+    color-mix(in srgb, var(--br-bg) 0%, transparent) 100%
+  );
+}
+
+/* color-mix is well supported on the tablets this ships to, but a browser
+   that skips the declaration above would paint an opaque bar — which is only
+   ever less pretty, never broken. */
+@supports not (color: color-mix(in srgb, red 0%, transparent)) {
+  .br__cta-bar { background: var(--br-bg); }
+}
+
+.br__cta {
+  width: 100%;
+  min-height: 60px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--br-hero), var(--br-hero-strong));
+  color: var(--br-hero-on);
+  font-family: var(--font-display, inherit);
+  font-style: italic;
+  font-weight: 900;
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 6px 20px var(--br-shadow);
+  transition: filter 120ms ease, transform 120ms ease;
+}
+.br__cta:hover { filter: brightness(1.06); }
+.br__cta:active { transform: scale(0.99); }
+.br__cta:focus-visible { outline: 2px solid var(--br-hero); outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .br *,
+  .br *::before,
+  .br *::after { transition-duration: 0ms !important; }
+}

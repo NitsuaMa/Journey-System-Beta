@@ -91,7 +91,7 @@ export function AppHeader({
         </div>
       )}
 
-      <div className="flex items-center gap-1 sm:gap-4 shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
         {rightControls || (
           <>
             {!isLight && (
@@ -125,7 +125,7 @@ export function AppHeader({
 
         <div
           className={cn(
-            "w-px h-6 mx-0.5 sm:mx-1",
+            "w-px h-6",
             isLight ? "bg-div-l" : "bg-div-d",
           )}
         />

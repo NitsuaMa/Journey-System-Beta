@@ -102,7 +102,7 @@ const ClientDirectoryView = lazy(() =>
 );
 // Lazy-loaded: downloaded on first visit to this view, not at app start.
 const TrainerProfileView = lazy(() =>
-  import("./components/TrainerProfileView").then((m) => ({ default: m.TrainerProfileView })),
+  import("./features/trainer-profile").then((m) => ({ default: m.TrainerProfileView })),
 );
 import { StudioSelectionView } from "./components/StudioSelectionView";
 // Lazy-loaded: downloaded on first visit to this view, not at app start.
@@ -156,7 +156,6 @@ const CatalogView = lazy(() =>
 );
 import { MaxStrengthLogo } from "./components/MaxStrengthLogo";
 import { ThemeToggle } from "./components/ThemeToggle";
-import { HubAnnouncementsWidget } from "./components/HubAnnouncementsWidget";
 import {
   isAdmin as checkIsAdmin,
   isOwner,
@@ -635,6 +634,19 @@ export default function AppContent({
     isDataReady,
   );
   const { sessions } = useSessions(activeStudioId, isDataReady);
+
+  /**
+   * The signed-in trainer's Kaizen Roster, as a set of client ids.
+   *
+   * Derived from the streamed `trainers` documents rather than from
+   * `authTrainer`, which is captured at sign-in and never re-read. Costs
+   * nothing extra: the roster rides on a document the app already subscribes
+   * to, which is exactly why it is stored there.
+   */
+  const kaizenClientIds = useMemo(() => {
+    const mine = trainers.find((t) => t.id === authTrainer?.id);
+    return new Set((mine?.kaizenRoster ?? []).map((e) => e.clientId));
+  }, [trainers, authTrainer?.id]);
   const { announcements } = useHubAnnouncements(authTrainer, activeStudioId);
   const [trainerFocuses, setTrainerFocuses] = useState<TrainerFocus[]>([]);
 
@@ -1543,7 +1555,7 @@ export default function AppContent({
    * is tablet-first and the Client Directory keeps its own search there.
    */
   const headerSearchSlot = (
-    <div className="hidden sm:flex items-center gap-1 w-full justify-end">
+    <div className="hidden sm:flex items-center w-full justify-end">
       <div className="relative w-full max-w-[14rem] md:max-w-[18rem] lg:max-w-[22rem] focus-within:max-w-[26rem] lg:focus-within:max-w-[30rem] transition-[max-width] duration-200">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
         <Input
@@ -1571,6 +1583,33 @@ export default function AppContent({
           </button>
         )}
       </div>
+    </div>
+  );
+
+  /**
+   * The header's icon cluster. ONE row, ONE gap, ONE button size.
+   *
+   * It used to be none of those things. The refresh lived inside the search
+   * slot and was separated from its neighbours by that slot's own horizontal
+   * padding; the theme toggle rendered as a bordered 32px square from shadcn
+   * among round 40px ghost buttons; and the bug, bell and gear each carried a
+   * slightly different icon ramp (`sm:w-6 md:w-7` against `sm:w-5`). So the
+   * space between adjacent glyphs changed four times across six of them.
+   * Nothing about that was designed - it is where each control happened to be
+   * added. Every one of them now takes the same class from `headerIconClass`
+   * and sits in the same flex row, so the gap is stated once.
+   *
+   * The second bell is gone with this round. `HubAnnouncementsWidget` streamed
+   * `hub_announcements` behind an identical glyph, which asked a trainer to
+   * guess which of two bells held the thing they wanted. Announcements now
+   * render as a pinned section inside the notification sheet - see
+   * features/notifications/useHubAnnouncements.ts.
+   */
+  const headerIconClass =
+    "relative h-9 w-9 sm:h-10 sm:w-10 rounded-full shrink-0 inline-flex items-center justify-center transition-colors outline-none hover:bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-50 focus-visible:ring-2 focus-visible:ring-cyan disabled:opacity-50";
+
+  const headerRightControls = (
+    <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
       <Button
         variant="ghost"
         size="icon"
@@ -1578,35 +1617,32 @@ export default function AppContent({
         disabled={isRefreshingSchedule}
         title={isRefreshingSchedule ? "Syncing schedule…" : "Refresh schedule"}
         aria-label="Refresh schedule"
-        className="h-10 w-10 rounded-lg shrink-0 text-slate-500 dark:text-slate-400 hover:text-orange-500 hover:bg-transparent"
+        className={headerIconClass}
       >
         <RefreshCw
-          className={`w-4 h-4 md:w-5 md:h-5 ${isRefreshingSchedule ? "animate-spin" : ""}`}
+          className={`w-5 h-5 sm:w-6 sm:h-6 ${isRefreshingSchedule ? "animate-spin" : ""}`}
         />
       </Button>
-    </div>
-  );
-
-  const headerRightControls = (
-    <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-      <ThemeToggle />
-      <FeedbackButton />
+      <ThemeToggle className={headerIconClass} />
+      <FeedbackButton className={headerIconClass} />
       <NotificationBell
         trainerId={authTrainer?.id}
+        authTrainer={authTrainer}
+        className={headerIconClass}
         onNavigate={(view, id) => {
           if (view === "profile" && id) setSelectedClientId(id);
           setCurrentView(view as any);
         }}
       />
-      <HubAnnouncementsWidget authTrainer={authTrainer} />
       <Button
         variant="ghost"
         size="icon"
         onClick={() => setCurrentView("trainer-hub")}
-        className={`h-8 w-8 sm:h-10 sm:w-10 rounded-full transition-all hover:bg-transparent shrink-0 ${currentView === "trainer-hub" ? "text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-50 active:text-orange-500"}`}
+        className={`${headerIconClass} ${currentView === "trainer-hub" ? "text-slate-900 dark:text-white" : "active:text-orange-500"}`}
         title="Trainer Control Hub"
+        aria-label="Trainer Control Hub"
       >
-        <Settings className="w-4 h-4 sm:w-6 sm:h-6 md:w-7 md:h-7 transition-colors hover:stroke-orange-500" />
+        <Settings className="w-5 h-5 sm:w-6 sm:h-6 transition-colors hover:stroke-orange-500" />
       </Button>
     </div>
   );
@@ -1774,6 +1810,10 @@ export default function AppContent({
                 setView={setCurrentView}
                 authTrainer={authTrainer}
                 onTrainerLogin={handleTrainerLogin}
+                onViewTrainerProfile={(id) => {
+                  setSelectedProfileTrainerId(id);
+                  setCurrentView("trainer-profile");
+                }}
                 isAdmin={
                   tokenRole === "Admin" ||
                   authTrainer?.role === "Admin" ||
@@ -1791,6 +1831,7 @@ export default function AppContent({
                 }}
                 onStartOpenSession={startUnassignedSession}
                 authTrainer={authTrainer}
+                kaizenClientIds={kaizenClientIds}
                 onUpdateSessions={updateClientSessions}
                 onStartNewClientOnboarding={setNewClientOnboardingName}
               />
@@ -1971,9 +2012,13 @@ export default function AppContent({
                 : authTrainer) && (
                 <TrainerProfileView
                   trainer={
-                    (selectedProfileTrainerId
-                      ? trainers.find((t) => t.id === selectedProfileTrainerId)
-                      : authTrainer)!
+                    // Always the LIVE document: `authTrainer` is captured at
+                    // sign-in and never re-read, so viewing your own profile
+                    // through it would never see your own Kaizen Roster edits
+                    // or the session counters the Cloud Function maintains.
+                    (trainers.find(
+                      (t) => t.id === (selectedProfileTrainerId || authTrainer?.id),
+                    ) || authTrainer)!
                   }
                   schedules={schedules}
                   sessions={sessions}

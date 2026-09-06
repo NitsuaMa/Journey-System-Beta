@@ -40,6 +40,9 @@ export function toTrainerRef(trainer: Trainer): TrainerRef {
     shortName: shortNameOf(name),
     initials: trainer.initials || initialsOf(name),
     tone: toneFor(trainer.id || name),
+    // A locally set photo beats the Mindbody one; absent both, the tone-coloured
+    // initials are what draws, which is the case for most staff.
+    photoUrl: trainer.photoUrl || trainer.mindbody?.imageUrl || null,
   };
 }
 

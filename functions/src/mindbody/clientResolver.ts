@@ -73,7 +73,20 @@ const isEmpty = (v: unknown): boolean =>
   v === "" ||
   (Array.isArray(v) && v.length === 0);
 
-export type LimboKind = "booking" | "client" | "commercial";
+/**
+ * "staff"     a staff event whose Mindbody id matches no trainer, or matches
+ *             more than one. Never auto-linked: a trainer document is an
+ *             RBAC principal, so a human links it in Edit Trainer.
+ * "unhandled" an event type no branch claims. Parked rather than dropped,
+ *             so a new Mindbody event type shows up as a queue item
+ *             instead of as silence.
+ */
+export type LimboKind =
+  | "booking"
+  | "client"
+  | "commercial"
+  | "staff"
+  | "unhandled";
 
 /**
  * Parks an event that cannot be filed against a studio, so an admin can see it

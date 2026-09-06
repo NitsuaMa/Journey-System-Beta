@@ -1,6 +1,10 @@
 export { NotificationBell } from "./NotificationBell";
 export { useNotifications } from "./useNotifications";
 export {
+  useHubAnnouncements,
+  markAnnouncementsRead,
+} from "./useHubAnnouncements";
+export {
   notify,
   markNotificationRead,
   markAllNotificationsRead,

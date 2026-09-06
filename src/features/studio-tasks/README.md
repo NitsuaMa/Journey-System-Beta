@@ -219,3 +219,113 @@ groups the selection by location and writes each group.
 - A task cannot be moved between tiers after it is created. Promoting a
   personal task to the studio list is a copy-and-delete across two collections
   and wants a deliberate design rather than a drive-by one.
+
+---
+
+## Shelf life, one-tap replies, and where tasks get authored (Sep 6, 2026)
+
+Three changes, all aimed at the same failure: **a board that rots is a board
+people scroll past, and once it is scrolled past the cover request that
+mattered is missed and everyone goes back to the group text.**
+
+### An expiry on a request
+
+`TaskRequest.expiresAt` — a real Timestamp, set by whoever posted it, offered
+as four choices at post time: **No expiry** (the default), **Today**, **3
+days**, **A week**.
+
+Do not confuse it with the existing `expiresOn`. That is a studio-local date
+key the *system* writes when a request is **resolved**, so a closed ask ages
+out of the "recently resolved" list after a fortnight. `expiresAt` applies to
+an **open** request and is the author's own statement that it has a shelf
+life. "Anyone free to spot me at 2" is noise at 4pm.
+
+- **No expiry stays the default, and stays first in the picker.** Most asks
+  have no honest deadline, and a picker that defaults to one would stamp a
+  made-up shelf life on every request on the board.
+- **"Today" means the end of the *studio's* day** (`endOfStudioDay`), not 24
+  hours out and not midnight on the iPad's clock. A device left on Pacific
+  time would otherwise keep tonight's ask up through tomorrow's opening shift.
+- **`useStudioRequests` re-evaluates on a 60s tick.** An expiry is the one
+  thing on this board that becomes true with *nothing being written* — the
+  document at 9pm is identical to the document at 8. Without the tick, a board
+  left open on the front-desk iPad keeps showing an expired request until
+  somebody happens to post something else.
+- **Expired ≠ deleted ≠ resolved.** It drops off the floor's board and appears
+  under **Aged out** in Manage. The difference between an ask that was
+  answered and one that ran out of time is the only interesting thing when
+  somebody asks why nobody covered Thursday.
+
+### Preset reactions
+
+```
+reactions[reactionId][uid] = { name, at }
+```
+
+Five fixed presets: **Got it · On it · Done · Thanks · Can't**.
+
+- **A fixed list, not open emoji.** Each one is a *state* a person can be in
+  with respect to the ask, so a row of them reads as status — "two saw it, one
+  is on it, one can't" — rather than as applause.
+- **A map of maps, not an array.** The write we care about is one person
+  toggling one reaction, which as a map is a single-field update at a known
+  path (`new FieldPath("reactions", id, uid)`, explicit segments so nothing is
+  parsed). Two people tapping in the same second write different fields and
+  neither can lose the other. `arrayUnion`/`arrayRemove` would need the exact
+  object back, timestamp included, to undo it.
+- **Removing writes `deleteField()`**, not `false` — an untapped reaction
+  leaves nothing behind, so the map *is* its reactors.
+- **Reactions never notify and never toast.** A nod is not an event, and five
+  bells behind one heads-up is the exact volume problem `notify.ts`'s four
+  filters exist to prevent.
+- Names are denormalized so a row renders without a read per reactor.
+
+### Manage owns studio task authoring
+
+The **Studio task list** panel is now the first thing in Manage, listing every
+studio template with a tap to edit, a **New studio task** button, and four
+one-tap starters (all-machine wipe-down, opening & closing, weekly machine
+check, client follow-ups).
+
+Authoring used to be reachable only from a dialog opened out of the *board's*
+header — the screen built for the opposite job, closing things off on the
+floor. Nothing about the model changed: same templates, same dialog for the
+detail. It is simply reachable from where the decision is made.
+
+The starters exist because the empty-list problem is not that authoring one
+task is hard, it is that the first one asks a manager to answer six questions
+(kind, category, recurrence, shift, target, note-required) before anything
+exists to look at. Each starter lands as an ordinary editable template — there
+is no such thing as a "preset task" in the model.
+
+### `canManage` is temporarily `true`, and it has a date on it
+
+`StudioTasksView` no longer hides anything behind
+`hasPermission("manage_studio_tasks")`. The permission is still evaluated —
+it decides the button's *label* — but the Manage section is being built out
+and the role model it should hang off is separate work; gating a half-built
+surface against a permission model that is also about to change means testing
+neither.
+
+**This is a UI gate only, and it always was.** `firestore.rules` decides who
+may write `studios/{id}/taskTemplates` and is unchanged. A trainer without the
+right still cannot save a studio task — they now see the attempt fail honestly
+instead of not seeing the button. **Restore the gate when RBAC lands.**
+
+### Still open
+
+- **Reactions and `expiresAt` need no rules change, and that is the problem.**
+  The deployed `taskRequests` update rule pins one thing — `createdBy.id` must
+  not change — and allows any authenticated trainer to write every other
+  field. So both new fields work in production today, and so would a trainer
+  deleting somebody else's reaction, rewriting the title, or clearing an
+  expiry they did not set. That permissiveness predates this round (it is what
+  lets anyone claim or close a request) and reactions do not widen it, but a
+  rule restricting a writer to their **own key** under `reactions` is the
+  obvious tightening and belongs with the RBAC pass.
+- **`expiresAt` has no index.** Expiry is filtered client-side over a studio's
+  requests, which is a handful of documents. If a busy studio ever makes that
+  read expensive, the query wants `where("status", "==", "open")` plus an
+  ordered `expiresAt` bound and the composite index to match.
+- A reaction cannot be seen from Manage. "Six people saw the heads-up and
+  nobody reacted" is a real signal and is currently invisible there.

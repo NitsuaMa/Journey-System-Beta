@@ -38,14 +38,17 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
+  FieldPath,
   increment,
   serverTimestamp,
   setDoc,
+  Timestamp,
   updateDoc,
 } from "firebase/firestore";
 import { db } from "../../firebase";
-import { studioDateKey } from "../../lib/studio-time";
+import { endOfStudioDay, studioDateKey } from "../../lib/studio-time";
 import type { TaskAuthor } from "./mutations";
 
 /**
@@ -77,6 +80,101 @@ export const REQUEST_KIND_HINT: Record<RequestKind, string> = {
 
 export type RequestPriority = "low" | "normal" | "urgent";
 export type RequestStatus = "open" | "resolved" | "cancelled";
+
+/**
+ * PRESET REACTIONS - the cheapest possible reply.
+ *
+ * Round: Sep 6 2026.
+ *
+ * Most answers to a floating request are not a sentence. "Got it" and "on it"
+ * are the entire content of the reply, and asking someone to open a thread,
+ * type two words and hit send to say them is why a board like this quietly
+ * loses to the group text it was meant to replace: the group text costs one
+ * thumb-tap and this cost six.
+ *
+ * A FIXED LIST, NOT FREE EMOJI
+ * ----------------------------
+ * Open reactions turn into decoration. These five are each a STATE someone
+ * can be in with respect to the ask, so the row of them is readable as
+ * status - "two people saw it, one is on it, one can't" - rather than as
+ * applause. "On it" deliberately overlaps with claiming: a claim is a commitment
+ * the board tracks, a reaction is a nod, and people reach for the nod first.
+ *
+ * THE SHAPE: reactions[reactionId][uid] = { name, at }
+ * ---------------------------------------------------
+ * A map of maps rather than an array of {id, uid} rows, because the write we
+ * care about is a TOGGLE by one person on one reaction. As a map that is a
+ * single-field update at a known path, which two people tapping at the same
+ * moment cannot lose - arrayUnion/arrayRemove would need the exact object
+ * back, including its timestamp, to remove it again. Names are denormalized
+ * so the row renders without a second read per reactor.
+ */
+export const REQUEST_REACTIONS = [
+  { id: "got-it", label: "Got it" },
+  { id: "on-it", label: "On it" },
+  { id: "done", label: "Done" },
+  { id: "thanks", label: "Thanks" },
+  { id: "cant", label: "Can't" },
+] as const;
+
+export type ReactionId = (typeof REQUEST_REACTIONS)[number]["id"];
+
+export const REACTION_LABEL: Record<ReactionId, string> = Object.fromEntries(
+  REQUEST_REACTIONS.map((r) => [r.id, r.label]),
+) as Record<ReactionId, string>;
+
+/** One reactor, stamped at the moment they tapped. */
+export interface Reactor {
+  name: string;
+  at?: unknown;
+}
+
+/** reactions[reactionId][uid]. Absent keys simply mean nobody. */
+export type ReactionMap = Partial<Record<ReactionId, Record<string, Reactor>>>;
+
+/** How long a request stays on the board, offered as a choice at post time. */
+export type ExpiryChoice = "today" | "3d" | "1w" | "none";
+
+export const EXPIRY_LABEL: Record<ExpiryChoice, string> = {
+  today: "Today",
+  "3d": "3 days",
+  "1w": "A week",
+  none: "No expiry",
+};
+
+/**
+ * Resolve a choice to an instant, in STUDIO time.
+ *
+ * "Today" means the end of the studio's day, not 24 hours from now and not
+ * the end of the day on the iPad's clock. A trainer posting "covering the
+ * front desk until close" at 8pm means tonight; a device left on Pacific time
+ * would keep that on the board through tomorrow morning's opening shift.
+ */
+export function expiryInstant(choice: ExpiryChoice): Date | null {
+  if (choice === "none") return null;
+  if (choice === "today") return endOfStudioDay(new Date());
+  const days = choice === "3d" ? 3 : 7;
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+/** Milliseconds out of a Firestore Timestamp, a Date, or a number. */
+export function expiryMillis(v: unknown): number {
+  if (!v) return 0;
+  const ts = v as { toMillis?: () => number; toDate?: () => Date };
+  if (typeof ts.toMillis === "function") return ts.toMillis();
+  if (typeof ts.toDate === "function") return ts.toDate().getTime();
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === "number") return v;
+  return 0;
+}
+
+/** Has this request's own expiry passed? Absent expiry never expires. */
+export function isExpired(r: { expiresAt?: unknown }, now = Date.now()): boolean {
+  const ms = expiryMillis(r.expiresAt);
+  return ms > 0 && ms < now;
+}
 
 /** studios/{studioId}/taskRequests/{requestId} */
 export interface TaskRequest {
@@ -117,6 +215,25 @@ export interface TaskRequest {
   priority: RequestPriority;
   /** Studio-local 'YYYY-MM-DD'. Resolved requests drop off the board after. */
   expiresOn?: string;
+
+  /**
+   * When this stops mattering, chosen by whoever posted it.
+   *
+   * Distinct from expiresOn, which is set BY the system when a request is
+   * resolved so the record ages out of the "recently resolved" list. This one
+   * applies to an OPEN request and is the author's own statement that it has
+   * a shelf life: "anyone free to spot me at 2" is noise at 4pm, and a board
+   * that keeps showing it teaches people to stop reading the board.
+   *
+   * A real Timestamp rather than a date key, because the useful granularity
+   * here is hours. Absent means it stands until somebody deals with it, which
+   * stays the default - an expiry is a claim about the future and most asks
+   * do not warrant one.
+   */
+  expiresAt?: unknown | null;
+
+  /** Preset one-tap replies. See REQUEST_REACTIONS. */
+  reactions?: ReactionMap;
 }
 
 /** studios/{studioId}/taskRequests/{requestId}/replies/{replyId} */
@@ -156,12 +273,16 @@ export interface CreateRequestInput {
   machineId?: string;
   sessionDate?: string;
   priority?: RequestPriority;
+  /** Defaults to "none" - most asks stand until dealt with. */
+  expiry?: ExpiryChoice;
 }
 
 export async function createRequest(input: CreateRequestInput): Promise<string> {
   const { studioId, author, kind, title } = input;
   if (!studioId) throw new Error("No active studio — cannot post a request.");
   if (!title.trim()) throw new Error("A request needs something to say.");
+
+  const expiresAt = expiryInstant(input.expiry ?? "none");
 
   const ref = await addDoc(requestsRef(studioId), {
     studioId,
@@ -183,6 +304,11 @@ export async function createRequest(input: CreateRequestInput): Promise<string> 
     // Low by default: this is the FLOATING lane. A board where everything
     // arrives as normal priority teaches people to ignore priority.
     priority: input.priority ?? "low",
+
+    // Only written when the author actually chose one. An explicit null on
+    // every document would be indistinguishable from "expires, at no time",
+    // and the absent case is the common one.
+    ...(expiresAt ? { expiresAt: Timestamp.fromDate(expiresAt) } : {}),
   });
   return ref.id;
 }
@@ -262,6 +388,76 @@ export async function addRequestReply(params: {
     { replyCount: increment(1), lastReplyAt: serverTimestamp() },
     { merge: true },
   );
+}
+
+/**
+ * Toggle one person's preset reaction on one request.
+ *
+ * ONE FIELD, AT A KNOWN PATH
+ * --------------------------
+ * `new FieldPath("reactions", reactionId, uid)` rather than a dotted string:
+ * the string form is parsed, and a path is not the place to discover that a
+ * segment contained a character the parser did not like. It also means two
+ * people tapping "Got it" in the same second write two different fields and
+ * neither can lose the other, which is the whole reason for a map of maps
+ * instead of an array (see REQUEST_REACTIONS).
+ *
+ * Removing writes deleteField() rather than false or null, so an untapped
+ * reaction leaves nothing behind and the map is exactly its reactors.
+ */
+export async function toggleRequestReaction(params: {
+  studioId: string;
+  requestId: string;
+  reaction: ReactionId;
+  author: TaskAuthor;
+  on: boolean;
+}): Promise<void> {
+  const { studioId, requestId, reaction, author, on } = params;
+  if (!studioId || !author?.id) return;
+  await updateDoc(
+    requestDocRef(studioId, requestId),
+    new FieldPath("reactions", reaction, author.id),
+    on
+      ? ({ name: author.name, at: serverTimestamp() } as Reactor)
+      : deleteField(),
+  );
+}
+
+/** Who reacted with what, flattened for rendering. Empty buckets dropped. */
+export function reactionSummary(
+  r: Pick<TaskRequest, "reactions">,
+): { id: ReactionId; label: string; names: string[]; ids: string[] }[] {
+  const out: { id: ReactionId; label: string; names: string[]; ids: string[] }[] =
+    [];
+  for (const { id, label } of REQUEST_REACTIONS) {
+    const bucket = r.reactions?.[id];
+    if (!bucket) continue;
+    const ids = Object.keys(bucket);
+    if (ids.length === 0) continue;
+    out.push({ id, label, ids, names: ids.map((k) => bucket[k]?.name ?? "") });
+  }
+  return out;
+}
+
+/**
+ * Change or clear an open request's shelf life after the fact.
+ *
+ * Separate from resolveRequest on purpose. "This stops mattering at close"
+ * is not the same statement as "this is handled", and collapsing the two
+ * would lose the difference between a request that was answered and one that
+ * simply aged out - which is the only interesting question when a manager
+ * asks why nobody covered Thursday.
+ */
+export async function setRequestExpiry(params: {
+  studioId: string;
+  requestId: string;
+  choice: ExpiryChoice;
+}): Promise<void> {
+  const { studioId, requestId, choice } = params;
+  const at = expiryInstant(choice);
+  await updateDoc(requestDocRef(studioId, requestId), {
+    expiresAt: at ? Timestamp.fromDate(at) : null,
+  });
 }
 
 export async function deleteRequest(studioId: string, requestId: string) {

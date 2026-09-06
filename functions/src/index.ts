@@ -4,8 +4,16 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 
-export { issueMindbodyUserToken } from "./mindbody/issueUserToken";
 export { mindbodyWebhook } from "./mindbody";
+export {
+  onSessionRollup,
+  recalcTrainerWindows,
+  backfillTrainerRollups,
+} from "./trainerRollups";
+export {
+  syncMindbodyStaffImages,
+  refreshMindbodyStaffImage,
+} from "./mindbody/staffImage";
 
 admin.initializeApp();
 const db = getFirestore("ai-studio-32cbbdcc-6e08-4770-9665-867c68878efa");

@@ -29,6 +29,7 @@ import {
   type ClientTaskAction,
   type TaskRow,
   type TaskShift,
+  type TaskTemplate,
 } from "./types";
 
 /**
@@ -126,6 +127,12 @@ export function StudioTasksView({
   const [noteRow, setNoteRow] = useState<TaskRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [managing, setManaging] = useState(false);
+  /** What the Manage dialog should land on when it next opens. */
+  const [managerIntent, setManagerIntent] = useState<
+    | { mode: "new"; scope: "studio" | "personal" }
+    | { mode: "edit"; template: TaskTemplate }
+    | null
+  >(null);
   /**
    * Board is the default for everyone. Manage is where a studio manager who
    * never sets foot on the floor lives — same documents, different question.
@@ -133,9 +140,24 @@ export function StudioTasksView({
    */
   const [mode, setMode] = useState<"board" | "manage">("board");
 
-  // Authoring the list sets the standard the floor is held to. Completing a
-  // task is not gated — any trainer closes one, which is the whole screen.
-  const canManage = hasPermission("manage_studio_tasks", {
+  /**
+   * TEMPORARILY UNGATED (Sep 6 2026) - deliberate, and it has a date on it.
+   *
+   * `hasPermission("manage_studio_tasks")` is still the right call and is
+   * still evaluated below for the label; what changed is that nothing is
+   * hidden by it any more. The Manage section is being built out this round
+   * and the role model it should hang off is a separate piece of work, so
+   * gating a half-built surface against a permission model that is also about
+   * to change would mean testing neither of them.
+   *
+   * THIS IS A UI GATE ONLY, AND IT ALWAYS WAS. firestore.rules is what
+   * actually decides who may write studios/{id}/taskTemplates, and it is
+   * unchanged - a trainer without the right still cannot save a studio task,
+   * they simply now see the attempt fail honestly instead of not seeing the
+   * button. Restore the gate when RBAC lands.
+   */
+  const canManage = true;
+  const hasManageRight = hasPermission("manage_studio_tasks", {
     studioId: activeStudioId ?? undefined,
   });
 
@@ -367,7 +389,7 @@ export function StudioTasksView({
             onClick={() => setManaging(true)}
           >
             <Settings2 size={14} aria-hidden className="inline align-middle" />{" "}
-            {canManage ? "Manage" : "My tasks"}
+            {hasManageRight ? "Manage" : "My tasks"}
           </button>
 
           <div className="st__progress">
@@ -414,6 +436,15 @@ export function StudioTasksView({
             templates={templates}
             categories={categories}
             flaggedRows={flaggedRows}
+            author={author}
+            onNewTask={() => {
+              setManagerIntent({ mode: "new", scope: "studio" });
+              setManaging(true);
+            }}
+            onEditTask={(template) => {
+              setManagerIntent({ mode: "edit", template });
+              setManaging(true);
+            }}
           />
         ) : (
           <>
@@ -715,18 +746,22 @@ export function StudioTasksView({
         )}
       </div>
 
-      {(
-        <TaskManager
-          open={managing}
-          onOpenChange={setManaging}
-          studioId={activeStudioId}
-          canManageStudio={canManage}
-          ownerId={ownerId}
-          templates={templates}
-          author={author}
-          clients={clients}
-        />
-      )}
+      <TaskManager
+        open={managing}
+        onOpenChange={(o) => {
+          setManaging(o);
+          // Consumed on close, so re-opening from the header lands on the
+          // list rather than on whatever Manage last asked for.
+          if (!o) setManagerIntent(null);
+        }}
+        studioId={activeStudioId}
+        canManageStudio={canManage}
+        ownerId={ownerId}
+        templates={templates}
+        author={author}
+        clients={clients}
+        openWith={managerIntent}
+      />
 
       <TaskNoteDialog
         row={noteRow}

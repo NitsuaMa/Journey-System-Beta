@@ -224,6 +224,33 @@ service cloud.firestore {
     // ===============================================================
 
     // TRAINERS: Directory search, auth checks, and creation permissions
+    //
+    // Sep 2026 (Trainer Dossier round) added three guards below the existing
+    // role rules, because the trainer document now carries data a tablet has
+    // no business writing:
+    //
+    //   rollups        session counters, maintained by Cloud Functions. A
+    //                  client that could set these could invent a career.
+    //   mindbody       the staff snapshot the sync owns. Client writes here
+    //                  would let a compromised session forge "Mindbody says".
+    //   kaizenRoster   a trainer's own tracked-client list. Readable by the
+    //                  whole studio team (that is the point), but curated by
+    //                  its owner alone -- leadership can change someone's role
+    //                  and studio access without editing who they watch.
+    //
+    // Written as a helper rather than inline so the existing update rule stays
+    // legible; `diff().affectedKeys()` is the only way rules can express
+    // "you may write this document but not that field".
+    function writesDerivedTrainerFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['rollups', 'mindbody']);
+    }
+
+    function writesForeignRoster(trainerId) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny(['kaizenRoster'])
+        && request.auth.uid != trainerId;
+    }
+
     match /trainers/{trainerId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && 
@@ -233,8 +260,10 @@ service cloud.firestore {
                      isStudioOwnerOrHeadTrainer(request.resource.data.primaryHomeStudioId) ||
                      // Allow any authenticated user to create the first trainer (bootstrap)
                      (request.auth.uid == trainerId));
-      allow update: if isSuperAdmin() || 
-                    ( (isFranchiseOwner() || 
+      allow update: if (isSuperAdmin() && !writesDerivedTrainerFields()) || 
+                    ( !writesDerivedTrainerFields() &&
+                      !writesForeignRoster(trainerId) &&
+                      (isFranchiseOwner() || 
                       (resource.data.primaryHomeStudioId != null && isStudioOwnerOrHeadTrainer(resource.data.primaryHomeStudioId)) || 
                       (isAuthenticated() && request.auth.uid == trainerId))
                       && 

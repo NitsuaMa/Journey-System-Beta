@@ -383,6 +383,52 @@
   overflow-wrap: anywhere; }
 .stq__reply-when { font-size: 9px; font-weight: 700; color: var(--st-ink-faint); }
 
+/* ── shelf life and one-tap replies (Sep 6) ─────────────────────────────── */
+
+/* The composer's "Stands for" label. Reads as part of the row rather than as
+   a heading above it, because a second heading inside a composer that is
+   already inside a lane inside a board is one nesting level too many. */
+.stq__expiry-label { display: inline-flex; align-items: center; gap: 0.3rem;
+  align-self: center; margin-right: 0.15rem; font-size: 10px; font-weight: 800;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--st-ink-muted); }
+
+/* Time remaining, inline in the sub-line. Amber, not red: a request winding
+   down is not a problem, and spending the alert colour on it would leave
+   nothing louder for a flagged machine. */
+.stq__ttl { display: inline-flex; align-items: center; gap: 0.2rem;
+  margin-left: 0.4rem; padding: 1px 5px; border-radius: 999px;
+  background: var(--st-flag-fill); color: var(--st-flag);
+  font-size: 9px; font-weight: 800; letter-spacing: 0.06em; }
+
+.stq__reacts { display: flex; flex-wrap: wrap; gap: 4px;
+  padding: 0 0.875rem 0.6rem 3.25rem; }
+
+/* 34px, matching every other chip on this screen. A reaction that is smaller
+   than the thing next to it invites the mis-tap it is meant to save. */
+.stq__react { display: inline-flex; align-items: center; gap: 0.3rem;
+  min-height: 34px; padding: 0 0.6rem; border: 1px solid var(--st-border);
+  border-radius: 999px; background: var(--st-surface-2); color: var(--st-ink-muted);
+  font: inherit; font-size: 10px; font-weight: 800; letter-spacing: 0.06em;
+  cursor: pointer; white-space: nowrap; }
+.stq__react:hover { background: var(--st-surface-3); color: var(--st-ink-2); }
+.stq__react[aria-pressed="true"] { border-color: var(--st-live);
+  background: var(--st-live-fill); color: var(--st-live); }
+.stq__react:disabled { opacity: 0.5; cursor: default; }
+.stq__react:focus-visible { outline: 2px solid var(--st-live); outline-offset: 1px; }
+
+.stq__react-n { display: inline-flex; align-items: center; justify-content: center;
+  min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px;
+  background: var(--st-surface); color: var(--st-ink-2);
+  font-size: 9px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.stq__react[aria-pressed="true"] .stq__react-n { background: var(--st-live);
+  color: #fff; }
+
+@media (max-width: 480px) {
+  /* The 3.25rem indent lines the reactions up under the title on a tablet.
+     On a phone that indent costs more than the alignment buys. */
+  .stq__reacts { padding-left: 0.875rem; }
+}
+
 /* ── claim chip on a task row ───────────────────────────────────────────── */
 .st__claim { display: inline-flex; align-items: center; gap: 0.25rem;
   min-height: 34px; padding: 0 0.55rem; border: 1px solid var(--st-border);
@@ -472,3 +518,33 @@
   color: var(--st-ink); box-shadow: 0 1px 2px var(--st-shadow); }
 .st__viewtoggle button:focus-visible { outline: 2px solid var(--st-live);
   outline-offset: 1px; }
+
+/* ── studio task authoring, inside Manage (Sep 6) ───────────────────────── */
+
+/* The list of standing duties, where a manager actually creates them. It used
+   to live only behind a dialog reachable from the board's own header, which
+   put the authoring surface on the screen built for the opposite job. */
+
+.stm__actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.25rem; }
+
+.stm__preset { display: inline-flex; align-items: center; gap: 0.3rem;
+  min-height: 36px; padding: 0 0.7rem; border: 1px dashed var(--st-border-strong);
+  border-radius: 999px; background: var(--st-surface); color: var(--st-ink-2);
+  font: inherit; font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; cursor: pointer; white-space: nowrap; }
+.stm__preset:hover { background: var(--st-surface-2); }
+.stm__preset:disabled { opacity: 0.5; cursor: default; }
+.stm__preset:focus-visible { outline: 2px solid var(--st-live); outline-offset: 1px; }
+
+.stm__templates { list-style: none; margin: 0.25rem 0 0; padding: 0;
+  display: flex; flex-direction: column; }
+.stm__template { display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 0; border-top: 1px solid var(--st-border); }
+.stm__templates > .stm__template:first-child { border-top: 0; }
+.stm__template[data-retired="true"] .stm__item-title { color: var(--st-ink-muted);
+  text-decoration: line-through; }
+
+.stm__template-open { flex: 1; min-width: 0; text-align: left; border: 0;
+  background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.stm__template-open:focus-visible { outline: 2px solid var(--st-live);
+  outline-offset: 2px; }

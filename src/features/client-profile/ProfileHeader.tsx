@@ -33,6 +33,18 @@ export interface ActiveSessionLike {
   startTime?: { toMillis?: () => number } | null;
 }
 
+/**
+ * The Kaizen Roster toggle, passed in rather than wired here.
+ *
+ * Absent when there is no signed-in trainer to own a roster. The header stays
+ * dumb: ClientProfileView owns the mutation, this owns the pixel.
+ */
+export interface KaizenToggleState {
+  isOn: boolean;
+  busy?: boolean;
+  onToggle: () => void;
+}
+
 export interface ProfileHeaderProps {
   client: Client;
   studioName?: string | null;
@@ -48,6 +60,7 @@ export interface ProfileHeaderProps {
   onTakeOverSession: () => void;
   onViewCurrentSession: () => void;
   onDiscardSession: () => void;
+  kaizen?: KaizenToggleState;
 }
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -155,6 +168,7 @@ export function ProfileHeader({
   onTakeOverSession,
   onViewCurrentSession,
   onDiscardSession,
+  kaizen,
 }: ProfileHeaderProps) {
   /* ---- last session ---- */
   const last = sessions.find((s) => s.status === "Completed") ?? sessions[0];
@@ -253,7 +267,46 @@ export function ProfileHeader({
       </div>
 
       {/* ---------- the action. Hero orange appears nowhere else in the header. ---------- */}
-      <div className="[grid-area:cta] justify-self-end">
+      <div className="[grid-area:cta] justify-self-end flex items-center gap-2">
+        {/*
+          Kaizen Roster toggle. Deliberately quiet and deliberately BLUE: the
+          red kaizen mark means "this rep needs work" in the session grid, and
+          if the two ever share a colour a glance can no longer tell "I am
+          tracking you" from "you are doing it wrong". It also stays visually
+          subordinate to Start Session, which is the one loud thing here.
+        */}
+        {kaizen && (
+          <button
+            type="button"
+            onClick={kaizen.onToggle}
+            disabled={kaizen.busy}
+            aria-pressed={kaizen.isOn}
+            title={kaizen.isOn ? "On your Kaizen Roster — tap to remove" : "Add to your Kaizen Roster"}
+            className={cn(
+              "shrink-0 inline-flex items-center gap-1.5 h-12 px-3 rounded-2xl border text-[11px] font-bold uppercase tracking-widest transition-colors",
+              kaizen.busy && "opacity-50",
+              kaizen.isOn
+                ? "border-transparent bg-[#0a548b]/10 text-[#034a84] dark:bg-[#4a9fd8]/15 dark:text-[#7cc0ee]"
+                : "border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-[#034a84] dark:hover:text-[#7cc0ee]",
+            )}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="2,10 6,6 10,10" opacity={0.55} />
+              <polyline points="6,13 10,9 14,13" />
+            </svg>
+            <span className="hidden sm:inline">{kaizen.isOn ? "Tracking" : "Track"}</span>
+          </button>
+        )}
         {activeInProgressSession ? (
           <DropdownMenu>
             <DropdownMenuTrigger className="inline-flex items-center gap-2 h-12 px-4 sm:px-5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-display italic uppercase tracking-wider text-sm sm:text-base shadow-[0_10px_30px_-12px_rgba(245,158,11,.8)] transition-colors">

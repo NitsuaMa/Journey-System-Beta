@@ -14,15 +14,19 @@
  * and painted as a hazard. Three of these are recoverable; one is not.
  */
 
-import React from "react";
+import React, { useState } from "react";
 import {
+  Calculator,
   Database,
   ListOrdered,
   RotateCcw,
   TriangleAlert,
   UserPlus,
 } from "lucide-react";
+import { httpsCallable } from "firebase/functions";
 import { Button } from "@/components/ui/button";
+import { functions } from "../firebase";
+import { useToast } from "../contexts/ToastContext";
 
 export interface AdminSystemToolsTabProps {
   onSeedDemoClient?: () => void;
@@ -87,6 +91,42 @@ export function AdminSystemToolsTab({
   onReorderTrainers,
   onAppCleanse,
 }: AdminSystemToolsTabProps) {
+  const { success: toastSuccess, error: toastError } = useToast();
+  const [rebuilding, setRebuilding] = useState(false);
+
+  /**
+   * Counts every completed session once and writes each trainer's totals.
+   *
+   * Needed because the write-time counter only sees sessions completed after
+   * it was deployed; everything before that -- including the Claris FileMaker
+   * import -- has to be counted in one pass. Authoritative and idempotent: it
+   * SETS each total from a full scan rather than adding, so running it twice
+   * gives the same answer.
+   *
+   * Reads every session document once, so it is a button rather than
+   * something that happens on app load, and it belongs outside studio hours:
+   * a session completed mid-scan can be counted by both the scan and the
+   * trigger, which a re-run then corrects.
+   */
+  const handleRebuildRollups = async () => {
+    setRebuilding(true);
+    try {
+      const call = httpsCallable(functions, "backfillTrainerRollups");
+      const result: any = await call({});
+      const data = result?.data || {};
+      toastSuccess(
+        `Counted ${data.sessionsCounted ?? 0} sessions across ${data.trainers ?? 0} trainers` +
+          (data.sessionsUnresolved
+            ? ` · ${data.sessionsUnresolved} could not be credited to anyone`
+            : ""),
+      );
+    } catch (err: any) {
+      toastError(err?.message || "Couldn't rebuild trainer rollups.");
+    } finally {
+      setRebuilding(false);
+    }
+  };
+
   return (
     <section className="rounded-[32px] border border-border bg-card overflow-hidden">
       <header className="flex items-center gap-4 px-6 sm:px-8 py-6 border-b border-border bg-background">
@@ -117,6 +157,13 @@ export function AdminSystemToolsTab({
           detail="Sets the order trainers appear in across the roster, calendars and pickers."
           action="Reorder"
           onClick={onReorderTrainers}
+        />
+        <ToolRow
+          icon={Calculator}
+          title="Rebuild trainer rollups"
+          detail="Counts every completed session and writes each trainer's totals. Run once after deploying, then only if the numbers ever look wrong — it reads every session, so keep it outside studio hours."
+          action={rebuilding ? "Counting…" : "Rebuild"}
+          onClick={rebuilding ? undefined : handleRebuildRollups}
         />
         <ToolRow
           icon={RotateCcw}

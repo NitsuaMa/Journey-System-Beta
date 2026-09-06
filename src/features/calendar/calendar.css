@@ -124,8 +124,23 @@
   font-weight: 900;
   letter-spacing: 0.02em;
   flex: 0 0 auto;
+  position: relative;
+  overflow: hidden;
 }
 .dark .cal-avatar, [data-theme="dark"] .cal-avatar { color: #06101a; }
+
+/* Mindbody staff photo, layered OVER the initials rather than replacing them.
+   A 404, a rotated CDN url or a slow network leaves the normal coloured
+   avatar showing instead of a broken image or an empty circle. The count
+   badge is positioned against .cal-who, so this overflow never clips it. */
+.cal-avatar__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
 .cal-avatar--sm { width: 22px; height: 22px; font-size: 9px; }
 
 /* Count badge rides the avatar rather than sitting beside it, so a row of

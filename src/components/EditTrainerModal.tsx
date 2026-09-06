@@ -71,10 +71,25 @@ export function EditTrainerModal({
   const [isVisibleOnCalendar, setIsVisibleOnCalendar] = useState(true);
   const [mindbodyStaffId, setMindbodyStaffId] = useState("");
 
+  /*
+   * PROFILE FIELDS (Sep 2026, Trainer Dossier round).
+   *
+   * `bio`, `certifications` and `employmentStartDate` have been on the
+   * Trainer type all along and NOTHING has ever written them, which is why
+   * every trainer's profile showed the same three placeholders. These are the
+   * inputs that were missing.
+   */
+  const [bio, setBio] = useState("");
+  const [certifications, setCertifications] = useState<string[]>([]);
+  const [certDraft, setCertDraft] = useState("");
+  const [employmentStartDate, setEmploymentStartDate] = useState("");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [fetchingPhoto, setFetchingPhoto] = useState(false);
+
   const [saving, setSaving] = useState(false);
   const [fetchingStaff, setFetchingStaff] = useState(false);
   const [staffOptions, setStaffOptions] = useState<
-    { id: string; fullName: string }[]
+    { id: string; fullName: string; imageUrl?: string | null }[]
   >([]);
 
   const handleFetchStaff = async () => {
@@ -104,6 +119,10 @@ export function EditTrainerModal({
       if (!res.ok) throw new Error(data.error || "Failed to fetch staff");
 
       if (data.staff && Array.isArray(data.staff)) {
+        // The bulk staff call has always returned ImageUrl for every staff
+        // member and this modal has always thrown it away. Keeping it means
+        // the picker shows faces and linking becomes visual instead of an ID
+        // guess -- at zero extra API cost.
         setStaffOptions(data.staff);
       }
     } catch (err: any) {
@@ -129,7 +148,26 @@ export function EditTrainerModal({
       setAccessibleStudioIds(trainer.accessibleStudioIds || []);
       setActiveGuestStudioIds(trainer.activeGuestStudioIds || []);
       setIsVisibleOnCalendar(trainer.isVisibleOnCalendar !== false);
-      setMindbodyStaffId(trainer.mindbodyStaffId || "");
+      // String(): older documents stored this as a NUMBER, and the save
+      // path calls .trim() on it. Coercing on load both fixes that crash
+      // and repairs the row the next time the profile is saved -- which
+      // matters because the staff webhook finds a trainer by matching this
+      // field, and Firestore's == is type-strict.
+      setMindbodyStaffId(String(trainer.mindbodyStaffId ?? ""));
+      setBio(trainer.bio || "");
+      setCertifications(trainer.certifications?.filter(Boolean) || []);
+      setCertDraft("");
+      setPhotoUrl(trainer.photoUrl ?? trainer.mindbody?.imageUrl ?? null);
+      // <input type="date"> speaks yyyy-mm-dd and nothing else; the stored
+      // value can be a Firestore Timestamp, a Date, or a string.
+      const started =
+        trainer.employmentStartDate?.toDate?.() ??
+        (trainer.employmentStartDate ? new Date(trainer.employmentStartDate) : null);
+      setEmploymentStartDate(
+        started && !Number.isNaN(started.getTime())
+          ? started.toISOString().slice(0, 10)
+          : "",
+      );
     }
   }, [trainer, isOpen]);
 
@@ -158,6 +196,60 @@ export function EditTrainerModal({
 
   const { success: toastSuccess, error: toastError } = useToast();
 
+  const addCertification = () => {
+    const value = certDraft.trim();
+    if (!value) return;
+    // Case-insensitive de-dupe: "NASM-CPT" and "nasm-cpt" are one certificate.
+    if (certifications.some((c) => c.toLowerCase() === value.toLowerCase())) {
+      setCertDraft("");
+      return;
+    }
+    setCertifications((prev) => [...prev, value]);
+    setCertDraft("");
+  };
+
+  /**
+   * Pull this staff member's photo from Mindbody.
+   *
+   * Saves to `photoUrl` -- the LOCAL override -- not to `mindbody.imageUrl`,
+   * which is server-write-only since this round. That is the honest place for
+   * it: a person pressed a button and pinned this image, and the scheduled
+   * sync keeps its own copy independently.
+   */
+  const handleFetchPhoto = async () => {
+    const studio = studios.find((s) => s.id === (primaryHomeStudioId || studios[0]?.id));
+    const siteId = studio?.mindbodySiteId ? String(studio.mindbodySiteId).trim() : null;
+    const staffId = mindbodyStaffId.trim();
+
+    if (!siteId || !staffId) {
+      toastError("Link a Mindbody staff ID and a studio site ID first.");
+      return;
+    }
+
+    setFetchingPhoto(true);
+    try {
+      const res = await fetch("/api/mindbody/staff-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ siteId, staffId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to fetch photo");
+
+      if (data.imageUrl) {
+        setPhotoUrl(data.imageUrl);
+        toastSuccess("Photo pulled from Mindbody.");
+      } else {
+        // The common case, and not an error: most staff have no photo.
+        toastError("Mindbody has no photo for this staff member.");
+      }
+    } catch (err: any) {
+      toastError(err?.message || "Couldn't reach Mindbody for that photo.");
+    } finally {
+      setFetchingPhoto(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!fullName || !initials || (isAdminMode && !primaryHomeStudioId)) {
       toastError("Validation Error: Missing required fields.");
@@ -177,7 +269,20 @@ export function EditTrainerModal({
         mindbodyLinked,
         mindbodyStaffId: mindbodyStaffId.trim() || "",
         searchTokens,
+        bio: bio.trim(),
+        certifications: certifications.map((c) => c.trim()).filter(Boolean),
+        photoUrl: photoUrl || null,
       };
+
+      // Noon local, so a date does not slide a day either side of UTC.
+      if (employmentStartDate) {
+        const parsed = new Date(`${employmentStartDate}T12:00:00`);
+        if (!Number.isNaN(parsed.getTime())) {
+          (payload as any).employmentStartDate = parsed;
+        }
+      } else {
+        (payload as any).employmentStartDate = null;
+      }
 
       if (isAdminMode) {
         // Force primaryHomeStudioId to be in accessibleStudioIds and filter empty IDs
@@ -297,6 +402,96 @@ export function EditTrainerModal({
             </div>
           </div>
 
+          {/*
+            PROFILE — the three fields the dossier has always displayed and
+            nothing has ever written. Without these, every trainer in the
+            system shows "No bio", "None recorded" and an em-dash.
+          */}
+          <div className="space-y-4 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-widest">
+                About
+              </Label>
+              <textarea
+                value={bio}
+                maxLength={600}
+                rows={3}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="A couple of sentences that would mean something to a client reading it."
+                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl p-3 text-sm resize-y"
+              />
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold text-right">
+                {bio.length} / 600
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-widest">
+                Certifications
+              </Label>
+              {certifications.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {certifications.map((cert) => (
+                    <span
+                      key={cert}
+                      className="inline-flex items-center gap-1.5 h-8 pl-3 pr-1.5 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200"
+                    >
+                      {cert}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCertifications((prev) => prev.filter((c) => c !== cert))
+                        }
+                        aria-label={`Remove ${cert}`}
+                        className="w-5 h-5 rounded-full grid place-items-center text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-slate-700"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  value={certDraft}
+                  onChange={(e) => setCertDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    // Enter adds. Without this the form would submit and the
+                    // half-typed certificate would vanish.
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addCertification();
+                    }
+                  }}
+                  placeholder="e.g. NASM-CPT, Precision Nutrition L1"
+                  className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl h-11"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addCertification}
+                  disabled={!certDraft.trim()}
+                  className="h-11 rounded-xl font-black uppercase text-[11px] tracking-widest shrink-0"
+                >
+                  Add
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-widest flex items-center gap-1">
+                <Calendar className="w-3 h-3 text-indigo-500" />
+                Started
+              </Label>
+              <Input
+                type="date"
+                value={employmentStartDate}
+                onChange={(e) => setEmploymentStartDate(e.target.value)}
+                className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl h-11"
+              />
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-[11px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-widest">
@@ -331,6 +526,60 @@ export function EditTrainerModal({
                 checked={mindbodyLinked}
                 onCheckedChange={setMindbodyLinked}
               />
+            </div>
+          </div>
+
+          {/*
+            PHOTO. Initials remain the primary avatar everywhere in the app --
+            most Mindbody staff records have no photo -- so this is a preview
+            and an opt-in pull, not a required field.
+          */}
+          <div className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30">
+            <span
+              className="relative w-14 h-14 rounded-2xl overflow-hidden shrink-0 grid place-items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-lg font-black tracking-wider"
+              style={{ color: brandColor || undefined }}
+              aria-hidden="true"
+            >
+              {initials || "?"}
+              {photoUrl && (
+                <img
+                  src={photoUrl}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={() => setPhotoUrl(null)}
+                />
+              )}
+            </span>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                Profile photo
+              </p>
+              <p className="text-[11px] text-slate-400 font-bold mt-0.5">
+                {photoUrl ? "From Mindbody" : "Initials will be used"}
+              </p>
+            </div>
+
+            <div className="flex gap-2 shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleFetchPhoto}
+                disabled={fetchingPhoto || !mindbodyStaffId.trim()}
+                className="h-10 rounded-xl font-black uppercase text-[10px] tracking-widest"
+              >
+                {fetchingPhoto ? "Fetching..." : photoUrl ? "Refresh" : "Pull photo"}
+              </Button>
+              {photoUrl && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setPhotoUrl(null)}
+                  className="h-10 rounded-xl font-black uppercase text-[10px] tracking-widest"
+                >
+                  Clear
+                </Button>
+              )}
             </div>
           </div>
 
@@ -383,9 +632,21 @@ export function EditTrainerModal({
                       value={s.id}
                       className="font-bold py-2.5 px-3 focus:bg-slate-100 dark:focus:bg-slate-800 rounded-xl cursor-pointer"
                     >
-                      <div className="flex items-center justify-between w-full gap-4 text-xs sm:text-sm">
-                        <span className="font-extrabold text-slate-900 dark:text-white truncate">
-                          {s.fullName}
+                      <div className="flex items-center justify-between w-full gap-3 text-xs sm:text-sm">
+                        <span className="flex items-center gap-2.5 min-w-0">
+                          <span className="relative w-7 h-7 rounded-lg overflow-hidden shrink-0 grid place-items-center bg-slate-100 dark:bg-slate-800 text-[10px] font-black text-slate-500">
+                            {s.fullName?.[0] || "?"}
+                            {s.imageUrl && (
+                              <img
+                                src={s.imageUrl}
+                                alt=""
+                                className="absolute inset-0 w-full h-full object-cover"
+                              />
+                            )}
+                          </span>
+                          <span className="font-extrabold text-slate-900 dark:text-white truncate">
+                            {s.fullName}
+                          </span>
                         </span>
                         <span className="font-mono text-xs text-[#F06C22] font-bold shrink-0 bg-[#F06C22]/10 px-2 py-0.5 rounded-md border border-[#F06C22]/20">
                           ID: {s.id}

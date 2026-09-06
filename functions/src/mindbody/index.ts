@@ -18,6 +18,8 @@ import {
 } from "./clientResolver";
 import { recordAttemptFailure } from "./retryLedger";
 import { extractBookingExtras } from "./passFields";
+import { extractStaffId, mapStaffEventToPatch } from "./staffProfile";
+import { resolveTrainerByStaffId } from "./staffResolver";
 
 export type WebhookRequest = {
   rawBody: string;
@@ -267,10 +269,40 @@ export async function handleMindbodyWebhook(
     const isContractEvent = lowerType.includes("clientcontract");
     const isCommercialEvent = isMembershipEvent || isContractEvent;
 
+    // Staff events are pulled out BEFORE the client test, and every branch
+    // below is now a positive test rather than a leftover.
+    //
+    // `isClientEvent` used to be `!isBookingEvent && !isCommercialEvent` -- a
+    // catch-all, not a test. A `staff.updated` event carries no clientId and
+    // matches neither of the other two, so it fell into the CLIENT PROFILE
+    // UPSERT: subscribing to staff events without this change would have
+    // started writing staff records into the `clients` collection. Anything
+    // matching no branch is now parked in limbo instead of guessed at, which
+    // also covers every Mindbody event type nobody here has thought of yet.
+    const isStaffEvent = lowerType.startsWith("staff.");
+
     const isBookingEvent =
       !isCommercialEvent &&
+      !isStaffEvent &&
       (lowerType.includes("booking") || lowerType.includes("appointment"));
-    const isClientEvent = !isBookingEvent && !isCommercialEvent;
+    //
+    // Two ways to qualify, because neither alone is right:
+    //
+    //   the NAME contains "client" -- Mindbody sends "client.updated", and
+    //     replayed or hand-built envelopes in this repo's tooling use names
+    //     like "evt-client-updated"; and
+    //   the payload NAMES a client -- so an unrecognised or future event that
+    //     explicitly carries a clientId still reaches the person it is about,
+    //     rather than becoming a limbo row nobody reads.
+    //
+    // The exclusions above are what carry the safety. Staff events never
+    // carry a clientId and are excluded by name anyway, so neither door lets
+    // one back into the client collection.
+    const isClientEvent =
+      !isCommercialEvent &&
+      !isStaffEvent &&
+      !isBookingEvent &&
+      (lowerType.includes("client") || clientId !== undefined);
 
     if (isCommercialEvent && clientId) {
       const clientRef = resolveClientRef(deps.firestore, clientId);
@@ -835,6 +867,79 @@ export async function handleMindbodyWebhook(
       }
 
       await scheduleRef.set(scheduleData, { merge: true });
+    } else if (isStaffEvent) {
+      const staffId = extractStaffId(parsed);
+
+      if (!staffId) {
+        await recordLimboEvent(deps.firestore, {
+          eventId,
+          eventType,
+          kind: "staff",
+          siteId,
+          locationId,
+          reason:
+            "Staff event carried no staff id, so there is nothing to match a trainer on.",
+          payload: parsed,
+        });
+      } else {
+        const resolution = await resolveTrainerByStaffId(deps.firestore, staffId);
+
+        if (resolution.kind === "matched") {
+          const { mindbody, deactivated } = mapStaffEventToPatch(parsed, eventType);
+
+          // ONLY the `mindbody` map. Not role, not pinHash, not studio access,
+          // not the Kaizen Roster. Mindbody owns the staff member's name,
+          // work email and photo; the Journey System owns everything that
+          // decides what they can do.
+          //
+          // Deactivation is reported, never enforced: `mindbody.isActive`
+          // goes false and the profile says so loudly, but nobody's access is
+          // revoked by a webhook. Removing a trainer's access is a decision a
+          // human makes, and a mis-mapped staff id must not be able to lock
+          // someone out mid-session.
+          await deps.firestore
+            .collection("trainers")
+            .doc(resolution.trainerId)
+            .set(
+              { mindbody: { ...mindbody, lastSyncAt: FieldValue.serverTimestamp() } },
+              { merge: true },
+            );
+
+          if (deactivated) {
+            console.warn(
+              `Mindbody webhook: staff ${staffId} was deactivated in Mindbody; trainer ${resolution.trainerId} flagged but access left unchanged.`,
+            );
+          }
+        } else {
+          await recordLimboEvent(deps.firestore, {
+            eventId,
+            eventType,
+            kind: "staff",
+            siteId,
+            locationId,
+            reason:
+              resolution.kind === "ambiguous"
+                ? `Mindbody staff id ${staffId} is claimed by more than one trainer (${resolution.trainerIds.join(", ")}). Fix the duplicate in Admin -> Trainers; nothing was written.`
+                : `No trainer carries Mindbody staff id ${staffId}. Link them in Edit Trainer -> Mindbody Staff ID; a webhook never creates a trainer account.`,
+            summary: { staffId },
+            payload: parsed,
+          });
+        }
+      }
+    } else {
+      // No branch claimed it. Park it rather than drop it.
+      await recordLimboEvent(deps.firestore, {
+        eventId,
+        eventType,
+        kind: isClientEvent || isCommercialEvent ? "client" : "unhandled",
+        siteId,
+        locationId,
+        reason:
+          isClientEvent || isCommercialEvent
+            ? "Event carried no client id, so it could not be filed against a client."
+            : `No handler for event type "${eventType}". Recorded so a new Mindbody event type surfaces instead of vanishing.`,
+        payload: parsed,
+      });
     }
 
     await recordHealthEvent(deps.firestore, {
