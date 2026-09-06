@@ -33,7 +33,7 @@
  * piece; everything downstream of it already worked.
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Activity,
   ArrowUpDown,
@@ -49,7 +49,10 @@ import {
 } from "lucide-react";
 import { ConditionChip } from "../../components/ConditionChip";
 import { RoutineCompareCard } from "../../components/RoutineCompareCard";
-import { SequenceRow } from "../../components/SequenceRow";
+import {
+  RoutineBuilder,
+  type MachineHistoryEntry,
+} from "../routine-builder";
 import { cn } from "@/lib/utils";
 import {
   findRoutineByLetter,
@@ -78,101 +81,8 @@ import { JournalEntryCard } from "../../components/journal/JournalEntryCard";
 import { FOCUS_VISUALS, relativeDay, toDate } from "../../types/journal";
 import { CLINICAL_FLAGS_MATRIX } from "../../data/clinical-matrix";
 import { safeToDate } from "../../lib/utils";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import "./briefing.css";
 
-function SortableSequenceItem({
-  id,
-  children,
-  showAddMachine,
-  onRemove,
-}: {
-  key?: React.Key;
-  id: string;
-  children: React.ReactNode;
-  showAddMachine: boolean;
-  onRemove: () => void;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 50 : "auto",
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="br__seq-item"
-      data-dragging={isDragging || undefined}
-    >
-      {showAddMachine && (
-        <div
-          {...attributes}
-          {...listeners}
-          className="br__seq-handle"
-          aria-label={`Reorder ${id}`}
-        >
-          <GripVertical className="w-5 h-5 pointer-events-none" />
-        </div>
-      )}
-      {/* Inert on purpose: the row is a readout, and a stray tap on it during
-          a drag would otherwise cancel the drag. */}
-      <div className="br__seq-body" data-inert="true">
-        {children}
-      </div>
-      {showAddMachine && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          className="br__seq-remove"
-          aria-label="Remove from routine"
-        >
-          <X className="w-5 h-5 pointer-events-none" />
-        </button>
-      )}
-    </div>
-  );
-}
-
-/**
- * One row of mutually exclusive pills. Tapping the active one clears it.
- *
- * The check-in carried four of these written out longhand, each option
- * repeating the same twelve-class conditional string - roughly 120 lines of
- * markup for four questions, and the strings had already drifted apart from
- * each other. Selected state now hangs off `aria-pressed`, which these buttons
- * had to set for screen readers regardless, so the styling and the semantics
- * cannot disagree.
- */
 function PillGroup<T extends string | number>({
   label,
   value,
@@ -262,7 +172,6 @@ export function BriefingScreen({
   const [adjustedMachineIds, setAdjustedMachineIds] = useState<string[]>([]);
   const [adjustmentNote, setAdjustmentNote] = useState("");
   const [isAdjusting, setIsAdjusting] = useState(false);
-  const [showAddMachine, setShowAddMachine] = useState(false);
   /** The 90-day check-in, run here instead of inside a full progress report. */
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [sleepQuality, setSleepQuality] = useState<SleepQuality | undefined>(
@@ -350,42 +259,18 @@ export function BriefingScreen({
       : routineB?.machineIds || [];
   };
 
-  const removeMachine = (index: number) => {
-    const currentItems = getCurrentBaseSequence();
-    const newSequence = [...currentItems];
-    newSequence.splice(index, 1);
-    setAdjustedMachineIds(newSequence);
+  /**
+   * Any change to the sequence — reorder, add, remove, a one-tap rule fix —
+   * lands here and marks the briefing as adjusted.
+   *
+   * `isAdjusting` is what decides whether onStart passes customMachines at
+   * all, and therefore whether today's session runs the saved routine or an
+   * override of it. Routing every edit through one setter is why that flag
+   * can no longer disagree with what is on screen.
+   */
+  const handleSequenceChange = (next: string[]) => {
+    setAdjustedMachineIds(next);
     setIsAdjusting(true);
-  };
-
-  const addMachine = (machineId: string) => {
-    const currentItems = getCurrentBaseSequence();
-    setAdjustedMachineIds([...currentItems, machineId]);
-    setIsAdjusting(true);
-    setShowAddMachine(false);
-  };
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const currentItems = getCurrentBaseSequence();
-      const oldIndex = currentItems.indexOf(active.id as string);
-      const newIndex = currentItems.indexOf(over.id as string);
-      const newSequence = arrayMove(currentItems, oldIndex, newIndex);
-      setAdjustedMachineIds(newSequence);
-      setIsAdjusting(true);
-    }
   };
 
   const handleStart = () => {
@@ -410,6 +295,83 @@ export function BriefingScreen({
       checkIn,
     );
   };
+
+  /**
+   * Last weight and reps per machine.
+   *
+   * The fallback chain is unchanged from the version that lived inline in the
+   * sequence list: the newest log wins, then the client's stored metric, and
+   * a TSC machine reads seconds rather than reps — checking outcomeTut and
+   * timeSpent as well, because three rounds of the tracker wrote it under
+   * three names. It moved out here so the shared row can render it.
+   */
+  const machineHistory = useMemo<Record<string, MachineHistoryEntry>>(() => {
+    const millis = (ts: any) => {
+      if (!ts) return 0;
+      if (typeof ts.toMillis === "function") return ts.toMillis();
+      if (typeof ts.toDate === "function") return ts.toDate().getTime();
+      if (ts.seconds !== undefined) return ts.seconds * 1000;
+      const d = new Date(ts);
+      return isNaN(d.getTime()) ? 0 : d.getTime();
+    };
+    const filled = (v: any) => v !== undefined && v !== null && v !== "";
+    const out: Record<string, MachineHistoryEntry> = {};
+
+    for (const machine of machines) {
+      const machineId = machine.id;
+      if (!machineId) continue;
+      const mLogs = (logs ?? [])
+        .filter((l) => l.machineId === machineId)
+        .sort((a, b) => millis(b.createdAt) - millis(a.createdAt));
+      const lastLog = mLogs[0];
+      const metric = client?.currentMachineMetrics?.[machineId];
+      if (!lastLog && !metric) continue;
+
+      const isTSC =
+        machine.targetRepRange?.toLowerCase().includes("tsc") ||
+        machine.targetRepRange?.toLowerCase().includes("static") ||
+        machine.targetRepRange?.toLowerCase().includes("time") ||
+        Boolean(lastLog?.isTSC) ||
+        Boolean(metric?.isTSC);
+
+      const first = (...vals: any[]) => vals.find(filled) ?? null;
+
+      out[machineId] = {
+        lastWeight: first(lastLog?.weight, lastLog?.loadLb, metric?.weight),
+        lastReps: isTSC
+          ? first(
+              lastLog?.seconds,
+              lastLog?.outcomeTut,
+              lastLog?.timeSpent,
+              metric?.seconds,
+              lastLog?.reps,
+              metric?.reps,
+            )
+          : first(lastLog?.reps, lastLog?.outcomeReps, metric?.reps),
+        lastUnit: isTSC ? "sec" : "reps",
+        lastDate: null,
+      };
+    }
+    return out;
+  }, [machines, logs, client?.currentMachineMetrics]);
+
+  /** The other half of the rotation, for the twice-weekly analysis. */
+  const counterpartIds = useMemo(() => {
+    if (selectedRoutineType === "A" || selectedRoutineType === "Create_A")
+      return routineB?.machineIds ?? null;
+    if (selectedRoutineType === "B" || selectedRoutineType === "Create_B")
+      return routineA?.machineIds ?? null;
+    return null;
+  }, [selectedRoutineType, routineA, routineB]);
+
+  /** What this client reported, for goal- and condition-aware suggestions. */
+  const purposeText = useMemo(
+    () =>
+      [client?.medicalHistory, client?.goals, (client?.clinicalProfile ?? []).join(" ")]
+        .filter(Boolean)
+        .join(" · ") || null,
+    [client?.medicalHistory, client?.goals, client?.clinicalProfile],
+  );
 
   const clientFlags = (client.clinicalFlags || [])
     .map((flagId) => CLINICAL_FLAGS_MATRIX.find((f) => f.id === flagId))
@@ -646,166 +608,41 @@ export function BriefingScreen({
               />
             </div>
 
-            {/* 4. Execution sequence */}
+            {/* 4. Execution sequence — the shared Routine Builder.
+
+                Previously this section had its own drag implementation, its
+                own flat "add machine" list behind an Edit routine / Done
+                editing toggle, and no rule checking at all: the pre-session
+                briefing was the one place a trainer could commit a routine
+                that put two pulling movements back to back without being
+                told. It is also the place a B routine is most often created,
+                which is exactly where the twice-weekly analysis belongs. */}
             <section className="br-section br__seq">
-              <header className="br-section__head">
-                <h2 className="br-section__title">
-                  <Activity className="w-4 h-4" />
-                  Execution sequence
-                </h2>
-                <button
-                  type="button"
-                  className="br__link-btn"
-                  aria-pressed={showAddMachine}
-                  onClick={() => setShowAddMachine(!showAddMachine)}
-                >
-                  {showAddMachine ? (
-                    <>
-                      <Check className="w-3.5 h-3.5" aria-hidden /> Done editing
-                    </>
-                  ) : (
-                    <>
-                      <ArrowUpDown className="w-3.5 h-3.5" aria-hidden /> Edit
-                      routine
-                    </>
-                  )}
-                </button>
-              </header>
-
-              {selectedRoutineIds.length === 0 ? (
-                <div className="br__empty">
-                  <p className="br__empty-text">
-                    Nothing in this routine yet. Add the machines you plan to
-                    work through - they are logged in the order you set here.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddMachine(true)}
-                    className="br__link-btn"
-                  >
-                    <Plus className="w-4 h-4" aria-hidden /> Add first machine
-                  </button>
-                </div>
-              ) : (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={selectedRoutineIds}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    {selectedRoutineIds.map((machineId, idx) => {
-                      const machine = machines.find((m) => m.id === machineId);
-                      if (!machine) return null;
-
-                      const getMillis = (ts: any) => {
-                        if (!ts) return 0;
-                        if (typeof ts.toMillis === "function")
-                          return ts.toMillis();
-                        if (typeof ts.toDate === "function")
-                          return ts.toDate().getTime();
-                        if (ts.seconds !== undefined) return ts.seconds * 1000;
-                        const d = new Date(ts);
-                        return isNaN(d.getTime()) ? 0 : d.getTime();
-                      };
-
-                      const mLogs = logs
-                        .filter((l) => l.machineId === machineId)
-                        .sort(
-                          (a, b) =>
-                            getMillis(b.createdAt) - getMillis(a.createdAt),
-                        );
-                      const lastLog = mLogs[0];
-                      const clientMetric = client?.currentMachineMetrics?.[machineId];
-
-                      const isTSC =
-                        machine.targetRepRange?.toLowerCase().includes("tsc") ||
-                        machine.targetRepRange
-                          ?.toLowerCase()
-                          .includes("static") ||
-                        machine.targetRepRange?.toLowerCase().includes("time") ||
-                        Boolean(lastLog?.isTSC) ||
-                        Boolean(clientMetric?.isTSC);
-
-                      const rawWeight =
-                        lastLog?.weight !== undefined && lastLog?.weight !== ""
-                          ? lastLog.weight
-                          : lastLog?.loadLb !== undefined && lastLog?.loadLb !== ""
-                            ? lastLog.loadLb
-                            : clientMetric?.weight !== undefined && clientMetric?.weight !== ""
-                              ? clientMetric.weight
-                              : null;
-
-                      const rawReps = isTSC
-                        ? lastLog?.seconds !== undefined && lastLog?.seconds !== ""
-                          ? lastLog.seconds
-                          : lastLog?.outcomeTut !== undefined && lastLog?.outcomeTut !== ""
-                            ? lastLog.outcomeTut
-                            : lastLog?.timeSpent !== undefined && lastLog?.timeSpent !== ""
-                              ? lastLog.timeSpent
-                              : clientMetric?.seconds !== undefined && clientMetric?.seconds !== ""
-                                ? clientMetric.seconds
-                                : lastLog?.reps !== undefined && lastLog?.reps !== ""
-                                  ? lastLog.reps
-                                  : clientMetric?.reps !== undefined && clientMetric?.reps !== ""
-                                    ? clientMetric.reps
-                                    : null
-                        : lastLog?.reps !== undefined && lastLog?.reps !== ""
-                          ? lastLog.reps
-                          : lastLog?.outcomeReps !== undefined && lastLog?.outcomeReps !== ""
-                            ? lastLog.outcomeReps
-                            : clientMetric?.reps !== undefined && clientMetric?.reps !== ""
-                              ? clientMetric.reps
-                              : null;
-
-                      const displayMachine = {
-                        idx: idx + 1,
-                        name: machine.name,
-                        lastLb: rawWeight,
-                        lastReps: rawReps,
-                        lastUnit: isTSC ? "sec" : "reps",
-                        isTSC: isTSC,
-                      };
-
-                      return (
-                        <SortableSequenceItem
-                          key={machineId}
-                          id={machineId}
-                          showAddMachine={showAddMachine}
-                          onRemove={() => removeMachine(idx)}
-                        >
-                          <SequenceRow machine={displayMachine as any} />
-                        </SortableSequenceItem>
-                      );
-                    })}
-                  </SortableContext>
-                </DndContext>
-              )}
-
-              {showAddMachine && (
-                <div className="br__add">
-                  <span className="br__label">
-                    <Plus className="w-3.5 h-3.5" />
-                    Add machine
-                  </span>
-                  <div className="br__add-list">
-                    {machines
-                      .filter((m) => !selectedRoutineIds.includes(m.id))
-                      .map((m) => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => addMachine(m.id)}
-                          className="br__add-item"
-                        >
-                          <Plus className="w-3.5 h-3.5" aria-hidden /> {m.name}
-                        </button>
-                      ))}
-                  </div>
-                </div>
-              )}
+              <div className="br__builder">
+                <RoutineBuilder
+                  mode="briefing"
+                  slot={
+                    selectedRoutineType === "B" || selectedRoutineType === "Create_B"
+                      ? "B"
+                      : selectedRoutineType === "A" || selectedRoutineType === "Create_A"
+                        ? "A"
+                        : null
+                  }
+                  machineIds={selectedRoutineIds}
+                  onChange={handleSequenceChange}
+                  machines={machines}
+                  client={client}
+                  history={machineHistory}
+                  counterpartMachineIds={counterpartIds}
+                  counterpartLabel={
+                    selectedRoutineType === "B" || selectedRoutineType === "Create_B"
+                      ? "Routine A"
+                      : "Routine B"
+                  }
+                  purposeText={purposeText}
+                  established={!isIntroSession}
+                />
+              </div>
             </section>
 
             {/* 5. How they turned up today. Optional, and the last stop

@@ -1,0 +1,127 @@
+Basic Principles of Exercise
+Productive Exercise - The Stimulating Reps Model
+Overview
+The Stimulating Reps model, developed by Chris Beardsley, explains which repetitions in a strength training set actually stimulate muscle growth and strength gains.  Also recall that mechanical tension alone has been determined to be the primary driver of hypertrophy.
+The key takeaway is simple but critical:
+Only the final repetitions of a set, those performed with very high effort and involuntary slowing of the contraction velocity of the working muscles, create stimulative levels of mechanical tension.
+These are referred to as stimulating, effective, or productive reps.
+Importantly, this involuntary slowing is more of a requirement for those with more training experience.  For true novice subjects, almost any level of intensity can be stimulative because it is a completely novel challenge.
+To determine the contraction velocity of the working muscles, it is common practice to use the velocity of the movement/implement itself as a proxy.  In our case at MSF, we would consider the movement arm of the machine, the experience of the instructor, and the subjective feelings of the client as to whether there is involuntary slowing present.
+The Stimulating Reps Model helps define:
+how hard a set must be
+how close to failure a client must train
+why some repetitions in a set may contribute little or no stimulus
+What Is a Stimulating Rep?
+A stimulating rep is a repetition performed when:
+effort is very high, AND
+the concentric phase involuntarily slows, despite the client attempting to maintain the same pace
+A stimulating rep creates high levels of mechanical tension in the working muscles, which contributes to an adaptive response by the body in the form of increased muscle and/or strength.
+Earlier repetitions, when the load moves smoothly and easily, do not produce sufficient mechanical tension, unless the subject is a relative beginner.
+Why Involuntary Slowing Matters
+At MSF, the single most important indicator of a stimulative effort is:
+Involuntary slowing of the movement arm during the concentric phase
+This slowing occurs because:
+the subject is nearing their upper limit of motor unit recruitment (i.e. the total number of muscle fibers they can recruit or activate to contribute to a task)
+this is effort dependant in that the higher the effort given, the higher the level of motor unit recruitment
+the nervous system is unable to recruit additional, higher threshold motor units to continue the movement due to the limitations imposed by our maximum tolerable perception of effort
+definition - a motor unit is a functional unit of muscle and consists of a motor neuron and all of the muscle fibers it controls
+Importantly:
+this slowing cannot be intentional for it to be stimulative (again, unless it is a beginner to resistance training)
+it occurs as fatigue accumulates, especially near concentric failure
+the subject must voluntarily decide to push/pull harder to maintain their pace
+more simply stated, the involuntary slowing FORCES a higher level of effort from the subject to continue, which creates higher levels of mechanical tension
+The closer a set is to concentric failure, the more likely the subject will experience involuntary slowing of the contraction.
+Failure and the Stimulus
+At MSF:
+concentric failure is defined as “failure”, the inability to complete the full concentric phase despite maximal effort
+However:
+true failure itself is not necessarily required for strength or hypertrophy
+however, training very close to failure is strongly encouraged to ensure a stimulus (especially for more experienced subjects)
+most clients will stop well before true failure, even with encouragement
+protective mechanisms naturally reduce effort as discomfort rises-this is known as the maximum tolerable perception of effort
+the further a set is from true concentric failure, the less likely there will be involuntary slowing thereby reducing the potential for stimulus
+For this reason:
+Most clients should be encouraged to train to failure, or as close to it as safely possible, to ensure high enough levels of mechanical tension.  This ability will be different for every client due to different levels of tolerance and skill and the instructor should be attuned to this level of individuality.
+Strength training is a discipline that is influenced by skill:
+tolerance to high levels of effort and uncomfortable sensations improves over time with more training
+clients become more capable of reaching productive intensity with focused practice
+mastery of execution is the ultimate form of long term progression
+Load Selection and Repetition Range
+Preferred Loading Strategy
+MSF generally prefers:
+moderate to heavy loads
+lower repetition ranges
+approximately 6 to 10 reps to failure or at least close
+This approach:
+allows clients to get closer to true failure with more focus
+reduces excessive time, discomfort, and fatigue
+improves the likelihood of involuntary slowing
+increases mechanical tension on individual muscle fibers
+Lighter Loads and Higher Reps
+With lighter loads:
+sets last longer
+fatigue, discomfort, and unfavorable sensations increase
+perceived effort rises disproportionately
+clients often terminate sets well before a stimulus is achieved
+Importantly, lighter loads are often still recommended for novice clients or the more intensity adverse to learn the attributes of proper execution.
+Individual Variability
+Some subjects are intensity adverse or may limited by injury:
+heavier loads may not be appropriate
+a moderate load may be used instead
+a more therapeutic approach can be beneficial by avoiding failure or even involuntary slowing
+Physiological Basis
+This model is consistent with Henneman’s Size Principle:
+lower threshold (slow twitch) motor units are recruited first
+as force demands increase, higher threshold (fast twitch) motor units are recruited
+high threshold motor units innervate (i.e. recruit) the muscle fibers with the greatest growth potential
+High threshold motor units are fully recruited only when:
+effort is very high, and
+the active muscle fibers have reached their force producing limit
+Involuntary slowing is the visible signal that these motor units are being recruited especially when the subject voluntarily increases their effort.
+Tempo, Control, and Involuntary Slowing at MSF
+MSF uses a voluntarily slow, controlled tempo:
+6 to 10 seconds concentric
+6 to 10 seconds eccentric
+preference toward the faster end, approximately 6 seconds with the same pace being maintained on both phases
+The purpose of this tempo is:
+safety as the priority
+ability to implement instruction
+continuous force application
+Key distinction:
+the tempo is intentional at the beginning of the set
+the slowing resulting from fatigue is not intentional
+a set that begins intentionally slow EVENTUALLY becomes unintentionally slow if that set is taken close to concentric failure
+Clients should be encouraged to:
+Maintain the pace and form using as much effort and focus as possible.
+Set Termination Guidelines
+For most MSF clients:
+sets should be taken at least close to concentric failure, or
+terminated only when another repetition cannot be completed with proper execution
+Exceptions include:
+intensity adverse clients
+injured or rehabbing clients
+early stage trainees still developing skill and tolerance
+for all of these situations, we are likely to use lighter loads with higher reps
+Practitioner Observation and Instructional Cues
+What the Practitioner Should Observe
+slowing of the concentric phase
+increasing effort required to maintain pace (accompanied by increasing respiration)
+movement speed grinding to a halt near the end of the set
+What the Practitioner Should Cue
+encourage them to keep their pace and their form (posture)
+“Keep pushing, don’t let it slow” or even “speed up!”
+“This is the productive part of the set.”
+Uncomfortable feelings/sensations are not necessarily stimulative and should not be emphasized or encouraged.  These only act to increase the perception of effort and lead to the subject ending the set prematurely.
+However, it is appropriate to acknowledge the client noticing the movement beginning to bog down.
+This awareness helps the client:
+increase effort
+remain engaged and motivated
+push closer to failure
+Key Takeaways for the Exercise Practitioner
+not all reps are equal (i.e. stimulative)
+only reps performed with very high effort and involuntary slowing are likely to have stimulative levels of mechanical tension
+involuntary slowing with increasing effort is the primary indicator of sufficient intensity
+training close to failure is the most reliable way to ensure stimulus
+heavier loads with fewer reps generally improve stimulus quality
+pace is controlled intentionally out of concern for safety; slowing must be involuntary, especially for more experienced subjects
+teaching effort and understanding the need to maintain pace when involuntary slowing begins are central to exercise execution at MSF

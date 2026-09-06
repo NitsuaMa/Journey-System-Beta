@@ -1413,6 +1413,29 @@ button.jg-stat__btn:active { background: var(--jg-surface-3); }
   touch-action: manipulation;
 }
 .jg-rail__edit:hover { background: var(--jg-surface-3); }
+.jg-rail__edit.is-on {
+  background: var(--jg-live, #0a548b);
+  color: #fff;
+  border-color: transparent;
+}
+
+/* The routine editor, in place above the grid.
+
+   Bounded rather than auto: the grid underneath is the thing a trainer is
+   working from, and a panel that grows with the machine count would push it
+   off screen exactly when the routine is long enough to need reordering.
+   20rem shows about six rows and leaves the grid visible behind it. */
+.jg-rail__panel {
+  flex: 0 0 auto;
+  height: 20rem;
+  min-height: 0;
+  overflow: hidden;
+  border-bottom: 1px solid var(--jg-border, rgba(127, 127, 127, 0.25));
+}
+
+@media (max-height: 700px) {
+  .jg-rail__panel { height: 15rem; }
+}
 
 /* Focus, renamed to what it does: which machines the list shows. */
 .jg-seg2 {

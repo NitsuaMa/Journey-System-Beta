@@ -112,7 +112,7 @@ import {
   findIncompleteLogs,
 } from "../lib/log-validation";
 import { ActiveSessionTimer } from "./ActiveSessionTimer";
-import { SessionRoutineManagerModal } from "./SessionRoutineManagerModal";
+import { RoutineBuilder } from "../features/routine-builder";
 import { MachineSheet } from "../features/equipment/MachineSheet";
 /* Lazy, and the reason is measurable: the assessment panel is a 162 kB
    chunk (50 kB gzipped) that most sessions never open. A static import
@@ -1060,12 +1060,6 @@ export function WorkoutTrackerView({
   }, [editingWeightMachineId, clientMachineSettings, logs]);
   const [isStaticHoldOverride, setIsStaticHoldOverride] = useState(false);
   const [historyMachineId, setHistoryMachineId] = useState<string | null>(null);
-  // Quick-add confirmation — clicking the small dot next to a machine that
-  // isn't part of today's routine (while a session is already running)
-  // prompts before adding it, rather than toggling it in silently.
-  const [quickAddMachineId, setQuickAddMachineId] = useState<string | null>(
-    null,
-  );
   const [isSettingUpRoutine, setIsSettingUpRoutine] = useState(false);
   const [showAllMachines, setShowAllMachines] = useState(false);
   const [isLegendOpen, setIsLegendOpen] = useState(false);
@@ -1386,8 +1380,18 @@ export function WorkoutTrackerView({
   const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
   const [pendingAssignSession, setPendingAssignSession] =
     useState<WorkoutSession | null>(null);
-  const [isSessionRoutineManagerOpen, setIsSessionRoutineManagerOpen] =
-    useState(false);
+  const [isRoutinePanelOpen, setIsRoutinePanelOpen] = useState(false);
+
+  /**
+   * Every mid-session change to the machine list lands here, and lands
+   * immediately — no staging buffer, no Confirm step.
+   *
+   * This was a modal with a Cancel/Confirm footer, which meant a trainer with
+   * a client waiting had to open a dialog, make the change, and then agree
+   * with themselves before the screen caught up. Session state is local and
+   * nothing is written to Firestore either way, so there was never anything
+   * for the confirm step to protect.
+   */
   const handleSaveSessionMachineIds = (newIds: string[]) => {
     setActiveMachineIds(newIds);
   };
@@ -1714,49 +1718,31 @@ export function WorkoutTrackerView({
     }
   }, [currentSession, routines, machines]);
 
-  const updateRoutineNote = async (machineId: string, note: string) => {
-    if (!currentSession?.routineId) return;
-    const routine = routines.find((r) => r.id === currentSession.routineId);
-    if (!routine) return;
+  /* REMOVED (Sep 2026): updateRoutineNote and moveMachine.
 
-    try {
-      const notes = { ...(routine.machineNotes || {}), [machineId]: note };
-      await updateDoc(doc(db, "routines", routine.id!), {
-        machineNotes: notes,
-      });
-    } catch (error) {
-      console.error("Error updating routine note:", error);
-    }
-  };
-
-  const moveMachine = async (machineId: string, direction: "up" | "down") => {
-    if (!currentSession?.routineId) return;
-    const routine = routines.find((r) => r.id === currentSession.routineId);
-    if (!routine) return;
-
-    const ids = [...routine.machineIds];
-    const idx = ids.indexOf(machineId);
-    if (idx === -1) return;
-
-    if (direction === "up" && idx > 0) {
-      [ids[idx], ids[idx - 1]] = [ids[idx - 1], ids[idx]];
-    } else if (direction === "down" && idx < ids.length - 1) {
-      [ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]];
-    }
-
-    try {
-      await updateDoc(doc(db, "routines", routine.id!), { machineIds: ids });
-    } catch (error) {
-      console.error("Error moving machine:", error);
-    }
-  };
+     Both wrote straight to the client's routine document — machineNotes and
+     machineIds respectively — from inside the live session screen, and
+     neither was called from anywhere. Unreachable, so nothing changes by
+     deleting them; but a function named moveMachine that permanently
+     reorders a client's prescribed routine, sitting in the session
+     component, is the precise mistake the session-scope rule exists to
+     prevent, and it was one wiring-up away from happening. Reordering
+     mid-session goes through handleSaveSessionMachineIds, which is local
+     state; routine notes are edited on the client profile. */
 
   const startNewSession = async (
     routineType: "A" | "B" | "Free",
     sessionType: SessionType = "Standard",
     customMachines?: string[],
     adjustmentNote?: string,
-    permanentSave?: boolean,
+    /* `permanentSave` used to sit here, and writing it out is the only
+       reason it is worth mentioning: it let a caller rewrite the client's
+       saved routine as a side effect of starting a session. No caller ever
+       passed true — the briefing hardcoded false and the consultation path
+       omitted it — so the branch was dead, and dead is exactly how a rule
+       stops being enforced by structure and starts being enforced by
+       everyone remembering. Permanent routine changes are made on the client
+       profile. (Sep 2026) */
     preSessionCheckIn?: PreSessionCheckIn,
   ) => {
     if (!clientId) return;
@@ -1794,12 +1780,6 @@ export function WorkoutTrackerView({
           }
         } else {
           routineId = routine.id;
-          // If permanent save requested, update existing routine
-          if (permanentSave && customMachines) {
-            await updateDoc(doc(db, "routines", routine.id), {
-              machineIds: customMachines,
-            });
-          }
         }
       }
 
@@ -2583,7 +2563,24 @@ export function WorkoutTrackerView({
     return out;
   }, [logs, gridRows, currentSession?.id]);
 
-  /** The machine being performed: the first one without a full set, unless the trainer tapped another. */
+  /**
+   * Where the trainer is working.
+   *
+   * This is a SEED, not a live driver, and the difference is the whole point.
+   *
+   * It used to be the fallback whenever no machine had been tapped, which made
+   * focus move on its own: entering reps auto-fills the quality mark, that
+   * completes the row, this memo recomputes, and the Now bar jumps to the next
+   * machine — while the trainer is still deciding whether the set they just
+   * watched was a max effort or one that broke down. The screen moved on
+   * mid-judgement, and the quality mark it had already filled in for them was
+   * the default one.
+   *
+   * So focus is seeded once when a session opens (from the first incomplete
+   * machine, so resuming a part-logged session lands in the right place) and
+   * afterwards moves only when the trainer says so — the Next button, a tap on
+   * a Today cell, or logging a TSC.
+   */
   const firstIncompleteMachineId = useMemo(() => {
     if (!currentSession?.id) return null;
     for (const id of activeMachineIds) {
@@ -2594,6 +2591,28 @@ export function WorkoutTrackerView({
     return activeMachineIds[0] ?? null;
   }, [activeMachineIds, gridLiveValues, currentSession?.id]);
   const [focusMachineOverride, setFocusMachineOverride] = useState<string | null>(null);
+  const seededFocusForSession = useRef<string | null>(null);
+
+  useEffect(() => {
+    const sessionId = currentSession?.id ?? null;
+    if (!sessionId) {
+      seededFocusForSession.current = null;
+      setFocusMachineOverride(null);
+      return;
+    }
+    // Once per session, and only after the routine has loaded — seeding from
+    // an empty list would pin focus to nothing and never correct itself.
+    if (seededFocusForSession.current === sessionId) return;
+    if (activeMachineIds.length === 0) return;
+    seededFocusForSession.current = sessionId;
+    setFocusMachineOverride(firstIncompleteMachineId ?? activeMachineIds[0]);
+  }, [currentSession?.id, activeMachineIds, firstIncompleteMachineId]);
+
+  /**
+   * The fallback survives for exactly one case now: the focused machine being
+   * dropped from the session. Anything else and the override holds, which is
+   * what keeps the screen still while a set is being judged.
+   */
   const gridFocusMachineId =
     focusMachineOverride && activeMachineIds.includes(focusMachineOverride)
       ? focusMachineOverride
@@ -2706,7 +2725,16 @@ export function WorkoutTrackerView({
         routineMachineIds: activeMachineIds,
         values: gridLiveValues,
         onChange: handleGridLiveChange,
-        onAddMachine: (id: string) => setQuickAddMachineId(id),
+        /* Straight in. The "+" only appears on a machine that is not in
+           today's routine, so the tap is already unambiguous — and a trainer
+           who has spare time and wants a bicep curl should not have to
+           confirm that they meant it. Removing it is the reverse of a
+           decision made when this was built ("prompts before adding it,
+           rather than toggling it in silently"); silence is the point. */
+        onAddMachine: (id: string) =>
+          setActiveMachineIds((prev) =>
+            prev.includes(id) ? prev : [...prev, id],
+          ),
         focusMachineId: gridFocusMachineId,
         onFocusMachine: setFocusMachineOverride,
         weightStep: 2,
@@ -2791,7 +2819,6 @@ export function WorkoutTrackerView({
             undefined,
             customMachines,
             note,
-            false,
             checkIn,
           )
         }
@@ -3199,53 +3226,6 @@ export function WorkoutTrackerView({
         onError={toastError}
       />
 
-      {/* Quick-Add-to-Routine Confirmation — clicking the small dot next to
-          a machine not currently in today's routine, mid-session. */}
-      {quickAddMachineId && (
-        <Dialog
-          open={!!quickAddMachineId}
-          onOpenChange={(v) => !v && setQuickAddMachineId(null)}
-        >
-          <DialogContent className="sm:max-w-100 rounded-[32px] p-0 overflow-hidden border-none shadow-2xl dark:shadow-none">
-            <div className="bg-white dark:bg-bg-dark p-8 text-slate-900 dark:text-white space-y-3">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-2 bg-blue-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.4)]">
-                <PlusCircle className="w-6 h-6" />
-              </div>
-              <h3 className="text-2xl font-black italic uppercase tracking-tight">
-                Add to Today's Routine?
-              </h3>
-              <p className="text-slate-500 dark:text-slate-400 font-medium text-sm leading-relaxed">
-                {machines.find((m) => m.id === quickAddMachineId)?.name ||
-                  "This machine"}{" "}
-                isn't part of today's routine yet. Add it to this session?
-              </p>
-            </div>
-            <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white dark:bg-bg-dark border-t border-slate-100 dark:border-slate-800">
-              <Button
-                variant="outline"
-                className="h-14 rounded-2xl font-black uppercase tracking-widest text-xs border-2 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-surface-2"
-                onClick={() => setQuickAddMachineId(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="h-14 rounded-2xl font-black uppercase tracking-widest text-xs bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none hover:bg-blue-700"
-                onClick={() => {
-                  setActiveMachineIds((prev) =>
-                    prev.includes(quickAddMachineId)
-                      ? prev
-                      : [...prev, quickAddMachineId],
-                  );
-                  setQuickAddMachineId(null);
-                }}
-              >
-                Add Machine
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
       {/* Exercise History Dialog */}
       {historyMachineId && clientId && (
         <ExerciseHistoryDialog
@@ -3492,11 +3472,12 @@ export function WorkoutTrackerView({
           </span>
           <button
             type="button"
-            className="jg-rail__edit"
-            onClick={() => setIsSessionRoutineManagerOpen(true)}
+            className={`jg-rail__edit ${isRoutinePanelOpen ? "is-on" : ""}`}
+            aria-expanded={isRoutinePanelOpen}
+            onClick={() => setIsRoutinePanelOpen((o) => !o)}
           >
             <Settings2 className="w-3 h-3 shrink-0" strokeWidth={2.5} />
-            Edit Routine
+            {isRoutinePanelOpen ? "Done" : "Edit Routine"}
           </button>
           <button
             type="button"
@@ -3527,6 +3508,22 @@ export function WorkoutTrackerView({
             )}
           </div>
         </div>
+
+        {/* Reordering happens here, in place, above the list it reorders.
+            Drag a machine and the grid behind it has already changed — the
+            trainer's input is the answer, not a proposal. */}
+        {currentSession && isRoutinePanelOpen && (
+          <div className="jg-rail__panel">
+            <RoutineBuilder
+              mode="in-session"
+              machineIds={activeMachineIds}
+              onChange={handleSaveSessionMachineIds}
+              machines={machines}
+              client={selectedClient}
+              established
+            />
+          </div>
+        )}
 
         {gridLive && (
           <JourneyGrid
@@ -3663,16 +3660,6 @@ export function WorkoutTrackerView({
           />
         )}
       </AnimatePresence>
-
-      {currentSession && (
-        <SessionRoutineManagerModal
-          isOpen={isSessionRoutineManagerOpen}
-          onOpenChange={setIsSessionRoutineManagerOpen}
-          currentMachineIds={activeMachineIds}
-          machines={machines}
-          onSave={handleSaveSessionMachineIds}
-        />
-      )}
 
       {currentSession && activeMachineIds.length > 0 && (
         <div className="fixed bottom-0 left-2 p-1 pointer-events-none opacity-20 z-110">

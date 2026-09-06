@@ -1,0 +1,41 @@
+Basic Equipment and Exercise Information
+Before an Exercise Practitioner ever trains a client at MSF, they must fully understand and be prepared to discuss the following attributes for every machine in our studios:
+Name of Exercise
+Meaningful communication between instructors requires standardized terminology, including equipment names.  Although some machines may have more than one equally suitable name (e.g. Lumbar or “Low Back”), for simplicity and standardization purposes the most common name is used.
+Instructors must know and use the common name for each machine.  It must also be properly notated on the charts.
+Type of Exercise - Compound vs. Simple
+Exercises and exercise equipment is divided into one of two types: compound and simple.  Compound exercises involve rotary movement around several joints that result in a relatively linear movement pattern.  Simple exercises produce a rotary movement pattern and usually involve only one joint.  They are also known as single joint or rotary form exercises.
+Compound and simple exercises are further divided into pushing and pulling exercises.  Pulling exercises generally involve movement of the limbs towards the body during the concentric phase and pushing exercises generally involve movement of the limbs away from the body.
+The leg press is an example of a compound pushing exercise.  Movement occurs around the hip, knee, and ankle joints in a rotary fashion to push the foot plate away from the body (or the body away from a fixed foot plate).  The resulting movement pattern of the actual exercise is generally linear.
+The biceps curl is an example of a single joint simple pulling exercise.  It involves movement around only the elbow joint.  The joints of the hand and wrist may be involved in gripping the handle of the movement arm but little or no movement occurs at those joints.  The movement arm handle is pulled towards the body as the elbow flexes.
+The lumbar extension is an exception in that it is a multi-joint, simple exercise.  It involves a rotary movement around a multitude of intervertebral joints.
+Instructors must know whether an exercise is compound or simple and the implications that come with each.
+Joint Action(s) Performed and Muscles Involved
+A course on human anatomy is beyond the scope of this manual but more than a basic understanding would serve an instructor well in their career.  There are plenty of resources in the form of texts and computer programs to aid in the learning process.
+At the simplest level, machines provide resistance to muscles as they perform one or more joint actions.  And while it is required to be able to identify the muscles involved it is even more important to know their proper function.
+Required learning includes an understanding of basic anatomical nomenclature including:
+Adduction/abduction
+Flexion/extension
+Supination/pronation
+External rotation/internal rotation
+Protraction/retraction
+Elevation/depression
+Origin/insertion
+Frontal plane, sagittal plane, transverse plane
+Instructors must know the joint action(s) performed during an exercise as well as the primary muscles involved in each.
+Positioning and Alignment
+During exercise, proper positioning is necessary for the desired joint action to match the movement of the machine and for the target muscles to be meaningfully loaded over the fullest possible range of motion while avoiding positions that are likely to produce injury.
+In simple exercises, the effective axis of the involved joint must be properly aligned with the axis of rotation of the movement arm of the machine.
+Simple exercises also require proper positioning of other body parts for proper timing.  This may oftentimes require the use of a back pad or a seat pad.
+The usable strength of a muscle or group of muscles varies from position to position due to changes in musculoskeletal leverage and other biomechanical factors.  Machines use a system of cams and/or levers to vary the resistance experienced, or felt by the user, over the range of motion of the exercise to match the usable strength of the working muscles.  This makes resistance lighter in positions where the involved muscles are at a biomechanical disadvantage (i.e. weaker) and heavier in positions where the involved muscles have a biomechanical advantage (i.e. stronger).
+Essentially, proper machine design allows for the resistance profile provided by the machine to more closely approximate the strength profile of the human body in a particular movement pattern resulting in a smoother feel.
+Proper positioning of the body during simple exercises occurs when the degree of rotation of the involved joint corresponds to the proper degree of rotation of the movement arm.  This allows for the variation in resistance to match the variation in strength over the range of motion, a concept referred to as timing.
+Other considerations for proper positioning/alignment:
+The head and neck must be in a neutral position. This may require a head pad or neck support during certain exercises for certain subjects.
+Hands may need to be in a specific position and state during some exercises to avoid gripping or other discrepancies.
+Feet may need to be placed on a footstool for support or femoral alignment if off the floor during some exercises.
+Instructors must know how to properly position and/or align the trainee in each machine and be prepared to explain why that positioning is important.
+Posture, Bracing, and Stabilization
+Newton's Third Law of Motion states that for every action there is an equal and opposite reaction.  When the pad, foot plate, or handle of a machine is pushed or pulled on, it pushes or pulls back against the user.  Mechanical or muscular stabilization is required to prevent this reactionary force from moving the body out of proper positioning or alignment.  Machines arrest some reactionary force using bracing or belts, but muscular stabilization is required to maintain proper posture or alignment during certain exercises.
+Stabilization is less difficult during compound exercises where the direction of reactionary force tends to only vary slightly.  Stabilization is more difficult during rotary exercises where the direction of reactionary force varies continuously over the range of motion and requires constant adjustment.
+Instructors must know how reactionary force affects positioning or alignment during an exercise and what mechanical and or muscular stabilization is required.  They must know how to properly stabilize the client in the machine (mechanical) and/or instruct the client on how exactly to stabilize their posture (muscular).  They must then remind the client to maintain their stabilized posture and anticipate any discrepancies.

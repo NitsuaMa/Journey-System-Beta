@@ -19,23 +19,7 @@ import {
   where,
 } from "firebase/firestore";
 import {
-  DndContext,
-  closestCenter,
-  useSensor,
-  useSensors,
-  PointerSensor,
-  KeyboardSensor,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import {
   X,
-  Plus,
   Sparkles,
   Building2,
   Save,
@@ -45,7 +29,6 @@ import {
 } from "lucide-react";
 import { db } from "../firebase";
 import { cn, safeToDate } from "../lib/utils";
-import { MACHINE_ANATOMY, MOVEMENT_PATTERN_ORDER } from "../data/machine-anatomy-map";
 import { GLOBAL_ROUTINE_PRESETS } from "../data/routine-presets";
 import {
   describeDeviation,
@@ -64,7 +47,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { SortableRoutineMachineRow } from "./SortableRoutineMachineRow";
+import {
+  RoutineBuilder,
+  type MachineHistoryEntry,
+} from "../features/routine-builder";
 import type {
   Client,
   Machine,
@@ -156,11 +142,6 @@ export function EditRoutineDrawer({
     top: number;
     maxHeight: number;
   } | null>(null);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
 
   // Both routine slots, falling back to an unsaved placeholder — mirrors the
   // temp-a/temp-b pattern the Routines tab cards already use.
@@ -297,48 +278,6 @@ export function EditRoutineDrawer({
       );
   }, [allPresets, activeStudioId]);
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (active && over && active.id !== over.id) {
-      setMachineIds((items) => {
-        const oldIndex = items.indexOf(active.id as string);
-        const newIndex = items.indexOf(over.id as string);
-        return arrayMove(items, oldIndex, newIndex);
-      });
-    }
-  };
-
-  // A static, unfiltered view of the catalog — no search, no dropdowns.
-  // Only excludes machines already in THIS slot's sequence (can't add the
-  // same unit twice to one routine's order). Deliberately does NOT look at
-  // the other slot's machineIds: the same machine is allowed to appear in
-  // both Routine A and Routine B at once, since each routine doc stores its
-  // own independent machineIds array in Firestore.
-  const availableMachines = useMemo(() => {
-    return machines.filter((m) => !!m.id && !machineIds.includes(m.id));
-  }, [machines, machineIds]);
-
-  // Grouped by kinematic movement pattern — the same catalog buckets used
-  // everywhere else — in the machines collection's own (preferred) order.
-  const groupedAvailableMachines = useMemo(() => {
-    const buckets: Record<string, Machine[]> = {};
-    MOVEMENT_PATTERN_ORDER.forEach((pattern) => (buckets[pattern] = []));
-    const other: Machine[] = [];
-    availableMachines.forEach((m) => {
-      const map = m.id ? MACHINE_ANATOMY[m.id] : undefined;
-      if (map) buckets[map.movementPattern].push(m);
-      else other.push(m);
-    });
-    const groups = MOVEMENT_PATTERN_ORDER.map((pattern) => ({
-      key: pattern as string,
-      label: pattern as string,
-      machines: buckets[pattern],
-    })).filter((g) => g.machines.length > 0);
-    if (other.length > 0)
-      groups.push({ key: "other", label: "Other Equipment", machines: other });
-    return groups;
-  }, [availableMachines]);
-
   // Last-performed weight + date per machine, sourced from this client's
   // own session logs (round 4). Sorted by sessionNumber first (an
   // incrementing per-client counter, the most reliable recency signal) and
@@ -347,7 +286,7 @@ export function EditRoutineDrawer({
   // the client has never performed are simply absent from the map, and the
   // row below falls back to "N/A" for both fields.
   const lastPerformedByMachine = useMemo(() => {
-    const map: Record<string, { weight: string; date: string }> = {};
+    const map: Record<string, MachineHistoryEntry> = {};
     const sessionById = new Map(sessions.map((s) => [s.id, s]));
     const relevantLogs = allLogs
       .filter((l) => !!l.machineId && sessionById.has(l.sessionId))
@@ -368,18 +307,43 @@ export function EditRoutineDrawer({
       const weight = log.weight || log.loadLb || "";
       const sessionDate = safeToDate(session?.date);
       map[machineId] = {
-        weight: weight ? String(weight) : "N/A",
-        date: sessionDate
-          ? sessionDate.toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })
-          : "N/A",
+        lastWeight: weight ? String(weight) : null,
+        lastReps: log.reps ?? null,
+        lastUnit: "reps",
+        lastDate: sessionDate
+          ? sessionDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+          : null,
       };
     }
     return map;
   }, [sessions, allLogs]);
+
+  /**
+   * The other half of the rotation, for the twice-weekly analysis.
+   *
+   * Read from the saved routine rather than from local state: the trainer is
+   * editing one slot, and the question the panel answers is whether this slot
+   * covers what the OTHER one already trains. An unsaved edit to the slot on
+   * screen must not move that target.
+   */
+  const counterpartMachineIds = useMemo(() => {
+    const other: RoutineSlot = activeSlot === "Routine A" ? "Routine B" : "Routine A";
+    if (other === "Routine B" && !client?.isRoutineBActive) return null;
+    return routineFor(other).machineIds ?? null;
+  }, [activeSlot, client?.isRoutineBActive, routineFor]);
+
+  /**
+   * What this client actually reported, matched against the Academy's
+   * exercise selection templates so suggestions lean toward their conditions
+   * and goals rather than toward a generic routine.
+   */
+  const purposeText = useMemo(
+    () =>
+      [client?.medicalHistory, client?.goals, (client?.clinicalProfile ?? []).join(" ")]
+        .filter(Boolean)
+        .join(" · ") || null,
+    [client?.medicalHistory, client?.goals, client?.clinicalProfile],
+  );
 
   /**
    * How far the trainer has moved from the template they applied.
@@ -772,116 +736,26 @@ export function EditRoutineDrawer({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6 items-start">
-            <div className="lg:sticky lg:top-0">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 font-mono">
-                Sequence Order (Drag to Reorder)
-              </h3>
-              {machineIds.length === 0 ? (
-                <p className="text-xs text-slate-400 italic py-4">
-                  No units in routine. Add machines from the list.
-                </p>
-              ) : (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={machineIds}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="space-y-2">
-                      {machineIds.map((machineId, idx) => {
-                        const machine = machines.find((m) => m.id === machineId);
-                        if (!machine) return null;
-                        const last = lastPerformedByMachine[machineId];
-                        return (
-                          <SortableRoutineMachineRow
-                            key={machineId}
-                            id={machineId}
-                            machineName={machine.name || "Unknown Machine"}
-                            sequenceNumber={idx + 1}
-                            lastWeightText={last?.weight || "N/A"}
-                            lastDateText={last?.date || "N/A"}
-                            isEditMode
-                            onRemove={() =>
-                              setMachineIds((prev) =>
-                                prev.filter((id) => id !== machineId),
-                              )
-                            }
-                          />
-                        );
-                      })}
-                    </div>
-                  </SortableContext>
-                </DndContext>
-              )}
-            </div>
-
-            <div className="min-w-0">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
-                  Add Machine Unit
-                </h3>
-                <span className="text-[10px] text-slate-400 font-mono">
-                  {machines.length} in catalog
-                </span>
-              </div>
-
-              {/* No inner max-h/scroll here on purpose — presets and notes
-                  moved out of this column specifically so the full catalog
-                  can lay out at once instead of scrolling inside a box. */}
-              <div className="p-2 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-div-l/30 space-y-4">
-                {availableMachines.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center py-4">
-                    All machines are already in this routine
-                  </p>
-                ) : (
-                  groupedAvailableMachines.map((group) => (
-                    <div key={group.key}>
-                      <div className="flex items-center justify-between px-1 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                        <span>{group.label}</span>
-                        <span className="flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-slate-200/60 dark:bg-black/40 text-[9px]">
-                          {group.machines.length}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-1.5">
-                        {group.machines.map((m) => {
-                          const movement =
-                            (m.id && MACHINE_ANATOMY[m.id]?.movementPattern) || "";
-                          let accent = "bg-secondary";
-                          if (movement.includes("Push")) accent = "bg-cta";
-                          else if (movement.includes("Pull")) accent = "bg-cyan";
-                          else if (movement.includes("Quad")) accent = "bg-green";
-                          else if (movement.includes("Posterior")) accent = "bg-yellow";
-                          else if (movement.includes("Core")) accent = "bg-amber";
-                          else if (movement.includes("Isolation")) accent = "bg-brand";
-                          return (
-                            <button
-                              key={m.id}
-                              type="button"
-                              onClick={() =>
-                                setMachineIds((prev) => [...prev, m.id!])
-                              }
-                              className="relative flex items-center gap-2 p-2.5 pl-3.5 overflow-hidden bg-white dark:bg-slate-900 border border-div-l/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-left transition-colors text-xs font-medium uppercase tracking-tight text-slate-700 dark:text-neutral-300"
-                            >
-                              <span
-                                className={`absolute left-0 top-0 bottom-0 w-1 ${accent}`}
-                              />
-                              <Plus className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                              <span className="leading-snug">{m.name}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
+        {/* The sequence list, the machine picker, the client model, the
+            rule warnings and the suggestions all live in the shared builder
+            now. What stays in this file is what is genuinely specific to
+            editing a client's BASELINE routine: the A/B slot switch, the
+            preset tiers, template provenance, the mandatory reason, and the
+            Firestore write. */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <RoutineBuilder
+            mode="baseline"
+            slot={activeSlot === "Routine A" ? "A" : "B"}
+            machineIds={machineIds}
+            onChange={setMachineIds}
+            machines={machines}
+            client={client}
+            history={lastPerformedByMachine}
+            counterpartMachineIds={counterpartMachineIds}
+            counterpartLabel={activeSlot === "Routine A" ? "Routine B" : "Routine A"}
+            purposeText={purposeText}
+            established={sessions.length >= 6}
+          />
         </div>
 
         {/* Footer — Notes now lives here (round 4), in the same band as
