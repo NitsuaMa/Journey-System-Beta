@@ -1060,12 +1060,6 @@ export function WorkoutTrackerView({
   }, [editingWeightMachineId, clientMachineSettings, logs]);
   const [isStaticHoldOverride, setIsStaticHoldOverride] = useState(false);
   const [historyMachineId, setHistoryMachineId] = useState<string | null>(null);
-  // Quick-add confirmation — clicking the small dot next to a machine that
-  // isn't part of today's routine (while a session is already running)
-  // prompts before adding it, rather than toggling it in silently.
-  const [quickAddMachineId, setQuickAddMachineId] = useState<string | null>(
-    null,
-  );
   const [isSettingUpRoutine, setIsSettingUpRoutine] = useState(false);
   const [showAllMachines, setShowAllMachines] = useState(false);
   const [isLegendOpen, setIsLegendOpen] = useState(false);
@@ -2745,7 +2739,16 @@ export function WorkoutTrackerView({
         routineMachineIds: activeMachineIds,
         values: gridLiveValues,
         onChange: handleGridLiveChange,
-        onAddMachine: (id: string) => setQuickAddMachineId(id),
+        /* Straight in. The "+" only appears on a machine that is not in
+           today's routine, so the tap is already unambiguous — and a trainer
+           who has spare time and wants a bicep curl should not have to
+           confirm that they meant it. Removing it is the reverse of a
+           decision made when this was built ("prompts before adding it,
+           rather than toggling it in silently"); silence is the point. */
+        onAddMachine: (id: string) =>
+          setActiveMachineIds((prev) =>
+            prev.includes(id) ? prev : [...prev, id],
+          ),
         focusMachineId: gridFocusMachineId,
         onFocusMachine: setFocusMachineOverride,
         weightStep: 2,
@@ -3237,53 +3240,6 @@ export function WorkoutTrackerView({
         onClose={() => setSheetMachineId(null)}
         onError={toastError}
       />
-
-      {/* Quick-Add-to-Routine Confirmation — clicking the small dot next to
-          a machine not currently in today's routine, mid-session. */}
-      {quickAddMachineId && (
-        <Dialog
-          open={!!quickAddMachineId}
-          onOpenChange={(v) => !v && setQuickAddMachineId(null)}
-        >
-          <DialogContent className="sm:max-w-100 rounded-[32px] p-0 overflow-hidden border-none shadow-2xl dark:shadow-none">
-            <div className="bg-white dark:bg-bg-dark p-8 text-slate-900 dark:text-white space-y-3">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-2 bg-blue-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.4)]">
-                <PlusCircle className="w-6 h-6" />
-              </div>
-              <h3 className="text-2xl font-black italic uppercase tracking-tight">
-                Add to Today's Routine?
-              </h3>
-              <p className="text-slate-500 dark:text-slate-400 font-medium text-sm leading-relaxed">
-                {machines.find((m) => m.id === quickAddMachineId)?.name ||
-                  "This machine"}{" "}
-                isn't part of today's routine yet. Add it to this session?
-              </p>
-            </div>
-            <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white dark:bg-bg-dark border-t border-slate-100 dark:border-slate-800">
-              <Button
-                variant="outline"
-                className="h-14 rounded-2xl font-black uppercase tracking-widest text-xs border-2 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-surface-2"
-                onClick={() => setQuickAddMachineId(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="h-14 rounded-2xl font-black uppercase tracking-widest text-xs bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none hover:bg-blue-700"
-                onClick={() => {
-                  setActiveMachineIds((prev) =>
-                    prev.includes(quickAddMachineId)
-                      ? prev
-                      : [...prev, quickAddMachineId],
-                  );
-                  setQuickAddMachineId(null);
-                }}
-              >
-                Add Machine
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
 
       {/* Exercise History Dialog */}
       {historyMachineId && clientId && (
