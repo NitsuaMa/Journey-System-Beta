@@ -1,33 +1,15 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Machine } from "../types";
-import { Plus, X } from "lucide-react";
-import { SequenceRow } from "./SequenceRow";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { RoutineBuilder, type MachineHistoryEntry } from "../features/routine-builder";
+import type { Client, Machine } from "../types";
 
 interface Props {
   isOpen: boolean;
@@ -35,219 +17,70 @@ interface Props {
   currentMachineIds: string[];
   machines: Machine[];
   onSave: (machineIds: string[]) => void;
+  /** Optional context. Absent, the builder simply shows less. */
+  client?: Client | null;
+  history?: Record<string, MachineHistoryEntry>;
 }
 
-function SortableSequenceItem({
-  id,
-  children,
-  showAddMachine,
-  onRemove,
-}: {
-  key?: React.Key;
-  id: string;
-  children: React.ReactNode;
-  showAddMachine: boolean;
-  onRemove: () => void;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 50 : "auto",
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} className="relative group">
-      <div className="flex items-center gap-2 mb-2">
-        {showAddMachine && (
-          <button
-            onClick={onRemove}
-            className="w-13 h-13 shrink-0 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-[10px] flex items-center justify-center transition-colors border border-rose-500/20"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        )}
-        <div className="flex-1 touch-none" {...attributes} {...listeners}>
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
-
+/**
+ * Mid-session routine changes.
+ *
+ * Trainers change the machine, or the order of machines, on the fly during a
+ * live session — it is a normal workflow, not an edge case — so this modal
+ * has to be as capable as the client-profile editor without being as slow to
+ * read. It runs the shared RoutineBuilder in `in-session` mode: shorter rows,
+ * no preset picker, no per-machine notes, but the same rule checking, the same
+ * suggestions and the same figure the trainer saw when the routine was built.
+ *
+ * Round: Unified Routine Builder, Sep 2026. Previously this file carried its
+ * own SortableSequenceItem and a flat wall of "add machine" buttons, so a
+ * mid-session change was the one place a trainer got no warning that they had
+ * just put two pulling movements back to back.
+ *
+ * Still session-scoped: onSave hands the ids back to WorkoutTrackerView and
+ * the persisted routine document is untouched. Nothing here writes to
+ * Firestore, which is why the builder is controlled by local state.
+ */
 export function SessionRoutineManagerModal({
   isOpen,
   onOpenChange,
   currentMachineIds,
   machines,
   onSave,
+  client = null,
+  history,
 }: Props) {
   const [localIds, setLocalIds] = useState<string[]>([]);
-  const [showAddMachine, setShowAddMachine] = useState(true);
 
   useEffect(() => {
-    if (isOpen) {
-      setLocalIds(currentMachineIds);
-    }
+    if (isOpen) setLocalIds(currentMachineIds);
   }, [isOpen, currentMachineIds]);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      setLocalIds((items) => {
-        const oldIndex = items.indexOf(active.id as string);
-        const newIndex = items.indexOf(over.id as string);
-        return arrayMove(items, oldIndex, newIndex);
-      });
-    }
-  };
-
-  const removeMachine = (index: number) => {
-    const updated = [...localIds];
-    updated.splice(index, 1);
-    setLocalIds(updated);
-  };
-
-  const addMachine = (machineId: string) => {
-    if (!localIds.includes(machineId)) {
-      setLocalIds([...localIds, machineId]);
-    }
-  };
-
-  // A sequence entry with no match in `machines` was dropped by a bare
-  // `return null` in the list below: the row vanished, while its id stayed in
-  // localIds and was written back on Save. Mid-session, that means a trainer
-  // can neither see the machine nor remove it, and cannot tell that the
-  // routine they are looking at is not the routine they will save. Once the
-  // roster narrows to equipment a studio actually owns this stops being
-  // hypothetical, so name it rather than hide it. (Sep 5 2026.)
-  const unavailableIds = useMemo(
-    () => localIds.filter((id) => !machines.some((m) => m.id === id)),
-    [localIds, machines],
-  );
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-136 sm:max-w-136 w-full bg-bg-dark border border-div-d text-ink-d1 p-0 overflow-hidden shadow-2xl rounded-3xl flex flex-col h-[80vh] md:h-[70vh]">
-        <DialogHeader className="p-4 md:p-6 bg-bg-dark border-b border-div-d shrink-0 relative z-20">
-          <DialogTitle className="text-xl md:text-2xl font-display italic font-black uppercase tracking-widest text-ink-d1">
-            Edit Routine Sequence
+      <DialogContent className="w-full max-w-5xl bg-bg-dark border border-div-d text-ink-d1 p-0 overflow-hidden shadow-2xl rounded-3xl flex flex-col h-[86vh] md:h-[80vh]">
+        <DialogHeader className="px-4 py-3 md:px-6 md:py-4 bg-bg-dark border-b border-div-d shrink-0">
+          <DialogTitle className="text-lg md:text-xl font-display italic font-black uppercase tracking-widest text-ink-d1">
+            Edit routine sequence
           </DialogTitle>
-          <DialogDescription className="text-ink-d3 font-bold uppercase tracking-widest text-[11px] md:text-xs mt-1 md:mt-2">
-            Drag to reorder. Tap X to remove.
+          <DialogDescription className="text-ink-d3 font-bold uppercase tracking-widest text-[11px] mt-1">
+            This session only — the client's saved routine is not changed
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto bg-bg-dark p-4 md:p-6 custom-scrollbar">
-          <div className="flex flex-col">
-            {unavailableIds.length > 0 && (
-              <div className="mb-3 rounded-2xl border border-amber-800/50 bg-amber-900/30 p-3 text-amber-200">
-                <p className="text-[11px] font-bold uppercase tracking-widest">
-                  Not available at this studio
-                </p>
-                <p className="mt-1 text-xs leading-relaxed">
-                  {unavailableIds.length}
-                  {unavailableIds.length === 1
-                    ? " machine in this routine is"
-                    : " machines in this routine are"}{" "}
-                  not on this location’s equipment list, so
-                  {unavailableIds.length === 1 ? " it is" : " they are"} not
-                  shown below and cannot be reordered here:{" "}
-                  <span className="font-mono">{unavailableIds.join(", ")}</span>.
-                  {unavailableIds.length === 1 ? " It stays" : " They stay"} in
-                  the routine when you save.
-                </p>
-              </div>
-            )}
-
-            {localIds.length === 0 ? (
-              <div className="flex flex-col items-center justify-center p-12 min-h-50 border border-dashed border-div-l rounded-2xl bg-bg-l-card mt-2 text-ink-l">
-                No machines in sequence. Add some below.
-              </div>
-            ) : (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={localIds}
-                  strategy={verticalListSortingStrategy}
-                >
-                  {localIds.map((machineId, idx) => {
-                    const machine = machines.find((m) => m.id === machineId);
-                    if (!machine) return null;
-
-                    const isTSC =
-                      machine.targetRepRange?.toLowerCase().includes("tsc") ||
-                      machine.targetRepRange
-                        ?.toLowerCase()
-                        .includes("static") ||
-                      machine.targetRepRange?.toLowerCase().includes("time");
-
-                    const displayMachine = {
-                      idx: idx + 1,
-                      name: machine.name,
-                      lastLb: null,
-                      lastReps: null,
-                      lastUnit: isTSC ? "sec" : "reps",
-                      isTSC: isTSC,
-                    };
-
-                    return (
-                      <SortableSequenceItem
-                        key={machineId}
-                        id={machineId}
-                        showAddMachine={showAddMachine}
-                        onRemove={() => removeMachine(idx)}
-                      >
-                        <SequenceRow machine={displayMachine as any} />
-                      </SortableSequenceItem>
-                    );
-                  })}
-                </SortableContext>
-              </DndContext>
-            )}
-
-            {showAddMachine && (
-              <div className="mt-4 p-4 border border-dashed border-cyan/20 rounded-xl bg-cyan/5">
-                <div className="text-[11px] font-medium tracking-wide opacity-60 text-cyan mb-3 uppercase">
-                  ADD MACHINE
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {machines
-                    .filter((m) => !localIds.includes(m.id!))
-                    .map((m) => (
-                      <button
-                        key={m.id}
-                        onClick={() => addMachine(m.id!)}
-                        className="text-[12px] font-medium text-ink-d1 bg-surface-2 hover:bg-surface-1 border border-div-d px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
-                      >
-                        <Plus className="w-3.5 h-3.5 text-cyan" /> {m.name}
-                      </button>
-                    ))}
-                </div>
-              </div>
-            )}
-          </div>
+        <div className="flex-1 min-h-0">
+          <RoutineBuilder
+            mode="in-session"
+            machineIds={localIds}
+            onChange={setLocalIds}
+            machines={machines}
+            client={client}
+            history={history}
+            established
+          />
         </div>
 
-        <DialogFooter className="p-4 md:p-6 bg-surface-1 border-t border-div-d shrink-0 relative z-20 flex flex-row items-center justify-end gap-3">
+        <DialogFooter className="p-3 md:p-4 bg-surface-1 border-t border-div-d shrink-0 flex flex-row items-center justify-end gap-3">
           <Button
             variant="ghost"
             onClick={() => onOpenChange(false)}
@@ -262,7 +95,7 @@ export function SessionRoutineManagerModal({
             }}
             className="bg-cta hover:bg-cta-strong text-ink-d1 font-system font-bold uppercase tracking-widest shadow-md text-[11px]"
           >
-            Confirm Sequence
+            Confirm sequence
           </Button>
         </DialogFooter>
       </DialogContent>
