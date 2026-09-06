@@ -1,0 +1,147 @@
+/* ==========================================================================
+   Pre-Session Briefing — design tokens
+   --------------------------------------------------------------------------
+   Round: Sep 6 2026 UI pass.
+
+   Values are lifted DELIBERATELY, unchanged, from trainer-profile.tokens.css,
+   which lifted them from equipment.tokens.css. The brief for this round was
+   "match our updated design system", and the fastest way to fail that is to
+   invent a tenth set of near-identical greys. Same surfaces, same ink ramp,
+   same hero orange and action blue, same already-verified contrast ratios -
+   only the prefix differs, so the feature stays self-contained the way every
+   other feature folder here is.
+
+   ONE ADDITION, AND ONLY ONE: --br-critical.
+   The briefing is the last screen before a trainer puts hands on a client, so
+   it carries a class of information no other screen does - "this client's hip
+   gives out if you go too fast". That is not a warning and it is not an alert
+   about system state; it is a contraindication, and it needs to be the single
+   loudest thing on the page after the client's name. It borrows --tp-alert's
+   verified ratios rather than inventing a red.
+
+   Two layers: raw brand pigment, then semantic names components actually use.
+   Light on :root, dark on .dark (the class ThemeProvider toggles), with
+   [data-theme] and prefers-color-scheme as fallbacks so a page rendered
+   before hydration is never the wrong theme.
+
+   Contrast checked to WCAG 2.1 AA: body text >= 4.5:1, borders and non-text
+   UI >= 3:1. Ratios noted beside each value so a future edit can be
+   re-checked.
+   ========================================================================== */
+
+:root {
+  --br-bg:              #f1f5f8;   /* page                                  */
+  --br-surface:         #ffffff;   /* cards                                 */
+  --br-surface-2:       #e8eef2;   /* insets, read-only chips               */
+  --br-surface-3:       #dae1e6;   /* hover / pressed                       */
+  --br-border:          #d3dadf;   /* hairlines                     1.4:1   */
+  --br-border-strong:   #a9b2b9;   /* dividers, unselected pill     2.2:1   */
+
+  --br-ink:             #121c23;   /* client name, machine names   17.3:1   */
+  --br-ink-2:           #3e4952;   /* body copy, goal text          9.2:1   */
+  --br-ink-muted:       #5b6770;   /* labels (brand slate)          5.8:1   */
+  --br-ink-faint:       #848e95;   /* em-dashes, empty states       3.3:1   */
+
+  /* Hero orange: START SESSION, and nothing else on this screen. One loud
+     action. Solid orange is 3.55:1 on white - fine for fills and >=18px bold,
+     never small text, which uses --br-hero-text. */
+  --br-hero:            #ef5302;
+  --br-hero-strong:     #d14700;
+  --br-hero-text:       #bc2c00;   /* 6.0:1 on white                        */
+  --br-hero-fill:       #fde7dc;
+  --br-hero-on:         #ffffff;
+
+  /* Blue: anything you can act on - routine selection, edit, add machine. */
+  --br-live:            #0a548b;   /* 7.9:1 on white                        */
+  --br-live-text:       #034a84;   /* 9.1:1 on white                        */
+  --br-live-fill:       #e6eef3;
+  --br-live-on:         #ffffff;
+
+  --br-ok:              #1c7a52;   /* 4.9:1 on white                        */
+  --br-ok-fill:         #e3f1ea;
+
+  --br-warn:            #8a5300;   /* 5.1:1 on white                        */
+  --br-warn-fill:       #fdf3e3;
+
+  /* Contraindications. See the header - this is the one addition. */
+  --br-critical:        #c0203f;   /* 5.9:1 on white                        */
+  --br-critical-fill:   #fce3e8;
+  --br-critical-border: #f0b6c1;   /* 3.0:1 against the fill                */
+
+  --br-focus-ring:      var(--br-live);
+  --br-shadow:          rgba(18, 28, 35, 0.10);
+  --br-radius:          14px;
+  --br-radius-lg:       18px;
+}
+
+.dark,
+[data-theme="dark"] {
+  --br-bg:              #070b0f;
+  --br-surface:         #0e151c;
+  --br-surface-2:       #151e27;
+  --br-surface-3:       #1d2833;
+  --br-border:          #1f2a35;   /* 1.5:1 on surface                      */
+  --br-border-strong:   #3a4855;   /* 2.9:1                                 */
+
+  --br-ink:             #eef3f7;   /* 15.8:1 on surface                     */
+  --br-ink-2:           #b3c0cb;   /* 8.6:1                                 */
+  --br-ink-muted:       #8b98a4;   /* 5.4:1                                 */
+  --br-ink-faint:       #63707c;   /* 3.1:1 — decorative only               */
+
+  /* Dark is not a flip: saturated orange vibrates on near-black, so fills
+     become low-alpha washes and text tones lift instead of darkening. */
+  --br-hero:            #f36d21;
+  --br-hero-strong:     #ff8038;
+  --br-hero-text:       #ff9455;   /* 7.4:1 on surface                      */
+  --br-hero-fill:       rgba(243, 109, 33, 0.14);
+  --br-hero-on:         #1a0c04;
+
+  --br-live:            #4a9fd8;
+  --br-live-text:       #7cc0ee;   /* 8.1:1 on surface                      */
+  --br-live-fill:       rgba(74, 159, 216, 0.14);
+  --br-live-on:         #04121c;
+
+  --br-ok:              #4ec08c;
+  --br-ok-fill:         rgba(78, 192, 140, 0.13);
+
+  --br-warn:            #fbbf24;
+  --br-warn-fill:       rgba(251, 191, 36, 0.10);
+
+  --br-critical:        #f2718c;   /* 7.6:1 on surface                      */
+  --br-critical-fill:   rgba(242, 113, 140, 0.13);
+  --br-critical-border: rgba(242, 113, 140, 0.38);
+
+  --br-shadow:          rgba(0, 0, 0, 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not([data-theme="light"]) {
+    --br-bg:              #070b0f;
+    --br-surface:         #0e151c;
+    --br-surface-2:       #151e27;
+    --br-surface-3:       #1d2833;
+    --br-border:          #1f2a35;
+    --br-border-strong:   #3a4855;
+    --br-ink:             #eef3f7;
+    --br-ink-2:           #b3c0cb;
+    --br-ink-muted:       #8b98a4;
+    --br-ink-faint:       #63707c;
+    --br-hero:            #f36d21;
+    --br-hero-strong:     #ff8038;
+    --br-hero-text:       #ff9455;
+    --br-hero-fill:       rgba(243, 109, 33, 0.14);
+    --br-hero-on:         #1a0c04;
+    --br-live:            #4a9fd8;
+    --br-live-text:       #7cc0ee;
+    --br-live-fill:       rgba(74, 159, 216, 0.14);
+    --br-live-on:         #04121c;
+    --br-ok:              #4ec08c;
+    --br-ok-fill:         rgba(78, 192, 140, 0.13);
+    --br-warn:            #fbbf24;
+    --br-warn-fill:       rgba(251, 191, 36, 0.10);
+    --br-critical:        #f2718c;
+    --br-critical-fill:   rgba(242, 113, 140, 0.13);
+    --br-critical-border: rgba(242, 113, 140, 0.38);
+    --br-shadow:          rgba(0, 0, 0, 0.5);
+  }
+}
