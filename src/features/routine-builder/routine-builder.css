@@ -461,8 +461,12 @@
   align-items: center;
   gap: 0.3rem;
 }
-.rb-sug__why { font-size: 0.68rem; color: var(--rb-ink-2); line-height: 1.35; margin-top: 0.1rem; }
-.rb-sug__src { font-size: 0.6rem; color: var(--rb-ink-faint); margin-top: 0.15rem; }
+/* Blocks, not inline: these are spans inside a span (the whole chip is a
+   button, so it cannot contain <p>), and inline they ran together —
+   "…belongs in every workout.Programming and Progression 1". */
+.rb-sug__body { display: flex; flex-direction: column; }
+.rb-sug__why { display: block; font-size: 0.68rem; color: var(--rb-ink-2); line-height: 1.35; margin-top: 0.1rem; }
+.rb-sug__src { display: block; font-size: 0.6rem; color: var(--rb-ink-faint); margin-top: 0.2rem; }
 
 .rb-tag {
   font-size: 0.57rem;

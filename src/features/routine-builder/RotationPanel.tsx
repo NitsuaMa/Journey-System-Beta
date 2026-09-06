@@ -52,6 +52,8 @@ export interface RotationPanelProps {
    *  the trainer explicitly asks — seeding over real work is destructive. */
   onSeed?: (machineIds: string[]) => void;
   canSeed: boolean;
+  /** Nothing in this routine yet — there is no overlap to report. */
+  isEmpty: boolean;
 }
 
 export function RotationPanel({
@@ -66,6 +68,7 @@ export function RotationPanel({
   onToggleTemplate,
   onSeed,
   canSeed,
+  isEmpty,
 }: RotationPanelProps) {
   const pct = Math.round(rotation.overlap * 100);
   const good = rotation.underDosed.length === 0;
@@ -84,20 +87,32 @@ export function RotationPanel({
           <ArrowLeftRight size={12} aria-hidden />
           Against {counterpartLabel}
         </span>
-        <span className={cn("rb-rot__score", good ? "rb-rot__score--ok" : "rb-rot__score--gap")}>
-          {pct}% overlap
-        </span>
+        {/* An empty routine covers nothing, but it has no primary regions
+            either, so the ratio comes back 1. A routine with no machines
+            reporting "100% overlap" is the worst possible first impression
+            of a panel whose whole job is to be believed. */}
+        {!isEmpty && (
+          <span className={cn("rb-rot__score", good ? "rb-rot__score--ok" : "rb-rot__score--gap")}>
+            {pct}% overlap
+          </span>
+        )}
       </div>
 
-      <div
-        className={cn("rb-rot__bar", !good && "rb-rot__bar--gap")}
-        role="img"
-        aria-label={`${pct}% of the regions ${counterpartLabel} trains are also trained here`}
-      >
-        <i style={{ width: `${pct}%` }} />
-      </div>
+      {!isEmpty && (
+        <div
+          className={cn("rb-rot__bar", !good && "rb-rot__bar--gap")}
+          role="img"
+          aria-label={`${pct}% of the regions ${counterpartLabel} trains are also trained here`}
+        >
+          <i style={{ width: `${pct}%` }} />
+        </div>
+      )}
 
-      {rotation.underDosed.length > 0 ? (
+      {isEmpty ? (
+        <p className="rb-note" style={{ marginTop: "0.4rem" }}>
+          Nothing here yet. {TWICE_WEEKLY_RULE.statement} Start from one of these and adjust:
+        </p>
+      ) : rotation.underDosed.length > 0 ? (
         <>
           <p className="rb-note" style={{ marginTop: "0.4rem" }}>
             Trained in {counterpartLabel} but not here, so{" "}
@@ -121,7 +136,7 @@ export function RotationPanel({
         </p>
       )}
 
-      {rotation.missingAcrossRotation.length > 0 && (
+      {!isEmpty && rotation.missingAcrossRotation.length > 0 && (
         <p className="rb-note rb-note--muted" style={{ marginTop: "0.4rem" }}>
           Absent from both routines:{" "}
           {rotation.missingAcrossRotation.map((c) => CATEGORY_LABEL[c]).join(", ")}. Every category
@@ -129,7 +144,7 @@ export function RotationPanel({
         </p>
       )}
 
-      {!rotation.lumbarLegPressSplit && (
+      {!isEmpty && !rotation.lumbarLegPressSplit && (
         <p className="rb-note rb-note--muted" style={{ marginTop: "0.4rem" }}>
           Lumbar and Leg Press sit in the same routine. The Academy eventually splits these across
           workouts — interference in the lower back from the Lumbar is felt during the Leg Press.

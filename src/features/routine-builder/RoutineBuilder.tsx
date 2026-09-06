@@ -272,6 +272,7 @@ export function RoutineBuilder({
           }
           onSeed={disabled ? undefined : (next) => onChange(next)}
           canSeed={ids.length === 0}
+          isEmpty={ids.length === 0}
         />
       )}
 
