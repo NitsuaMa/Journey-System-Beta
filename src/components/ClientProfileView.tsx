@@ -106,7 +106,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ROUTINE_TEMPLATES, RoutineTemplateType } from "../constants";
 import { ClientFocusDashboard } from "./ClientFocusDashboard";
 import { getCompletedSessionCount } from "../lib/session-count-cache";
 import { ClinicalReviewTab } from "../features/clinical-review";
@@ -144,7 +143,6 @@ import {
   getMuscleGroupColor,
   orderMachineSettings,
 } from "../lib/utils";
-import { RoutineBuilderView } from "./RoutineBuilderView";
 import { CLINICAL_FLAGS_MATRIX } from "../data/clinical-matrix";
 import {
   Accordion,
@@ -507,15 +505,6 @@ export function ClientProfileView({
   });
   const [isSavingEvent, setIsSavingEvent] = useState(false);
   const [isSavingInfo, setIsSavingInfo] = useState(false);
-  const [stagedMachineIds, setStagedMachineIds] = useState<
-    Record<string, string[]>
-  >({});
-  const [isSavingRoutine, setIsSavingRoutine] = useState<
-    Record<string, boolean>
-  >({});
-  const [routineBuilderTarget, setRoutineBuilderTarget] = useState<
-    string | null
-  >(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingSettings, setEditingSettings] = useState<{
     machineId: string;
@@ -806,64 +795,6 @@ export function ClientProfileView({
     }
   };
 
-  const toggleMachineInRoutine = (routineName: string, machineId: string) => {
-    const current = stagedMachineIds[routineName] || [];
-    const next = current.includes(machineId)
-      ? current.filter((id) => id !== machineId)
-      : [...current, machineId];
-
-    setStagedMachineIds((prev) => ({ ...prev, [routineName]: next }));
-  };
-
-  const handleSaveRoutineConfig = async (routineName: string) => {
-    if (!clientId) return;
-    const machineIds = stagedMachineIds[routineName] || [];
-
-    setIsSavingRoutine((prev) => ({ ...prev, [routineName]: true }));
-    try {
-      const existing = routines.find((r) => r.name === routineName);
-      if (existing) {
-        await updateDoc(doc(db, "routines", existing.id!), {
-          machineIds,
-          updatedAt: serverTimestamp(),
-        });
-      } else {
-        await addDoc(collection(db, "routines"), {
-          clientId,
-          name: routineName,
-          machineIds,
-          createdAt: serverTimestamp(),
-          studioId: clients.find((c) => c.id === clientId)?.homeStudioId || "",
-        });
-      }
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, "routines");
-    } finally {
-      setIsSavingRoutine((prev) => ({ ...prev, [routineName]: false }));
-    }
-  };
-
-  const handleApplyTemplate = (
-    templateType: RoutineTemplateType,
-    routineName: string,
-  ) => {
-    if (!clientId) return;
-
-    const templateNames = ROUTINE_TEMPLATES[templateType];
-    const machineIds = templateNames
-      .map(
-        (name) =>
-          machines.find((m) => m.name === name || m.fullName === name)?.id,
-      )
-      .filter((id): id is string => !!id);
-
-    setStagedMachineIds((prev) => ({ ...prev, [routineName]: machineIds }));
-
-    if (routineName?.includes("Routine B")) {
-      handleToggleRoutineB(true);
-    }
-  };
-
   useEffect(() => {
     // Clear first. This view is not remounted between clients, and the fetch
     // below only ever WRITES on resolve — so between switching client and the
@@ -883,16 +814,6 @@ export function ClientProfileView({
           (doc) => ({ id: doc.id, ...doc.data() }) as Routine,
         );
         setRoutines(routinesData);
-
-        setStagedMachineIds((prev) => {
-          const newStaged: Record<string, string[]> = { ...prev };
-          routinesData.forEach((r) => {
-            if (!prev[r.name]) {
-              newStaged[r.name] = r.machineIds;
-            }
-          });
-          return newStaged;
-        });
       } catch (error: any) {
         handleFirestoreError(error, OperationType.GET, "routines");
       }
@@ -1615,22 +1536,6 @@ export function ClientProfileView({
         </p>
         <Button onClick={() => setView("clients")}>Back to Clients</Button>
       </div>
-    );
-  }
-
-  if (routineBuilderTarget) {
-    return (
-      <RoutineBuilderView
-        client={client}
-        onBack={() => setRoutineBuilderTarget(null)}
-        onSaveRoutine={(machineIds) => {
-          setStagedMachineIds((prev) => ({
-            ...prev,
-            [routineBuilderTarget]: machineIds,
-          }));
-          setRoutineBuilderTarget(null);
-        }}
-      />
     );
   }
 
