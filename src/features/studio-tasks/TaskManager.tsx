@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Plus, Trash2 } from "lucide-react";
 import {
   Dialog,
@@ -81,6 +81,18 @@ export interface TaskManagerProps {
   templates: TaskTemplate[];
   author?: { id: string; name: string } | null;
   clients?: Client[];
+  /**
+   * What to show the moment the dialog opens.
+   *
+   * Manage now owns studio task authoring (Sep 6), and "New studio task"
+   * there should land on the form, not on a list the manager was just looking
+   * at. Applied on the transition into open rather than on every render, so a
+   * manager who backs out to the list is not shoved forward again.
+   */
+  openWith?:
+    | { mode: "new"; scope: TaskScope }
+    | { mode: "edit"; template: TaskTemplate }
+    | null;
 }
 
 export function TaskManager({
@@ -92,6 +104,7 @@ export function TaskManager({
   templates,
   author,
   clients,
+  openWith = null,
 }: TaskManagerProps) {
   const { success: toastSuccess, error: toastError } = useToast();
   // Bridged for the same reason as useStudioTasks: an unbridged empty roster
@@ -153,6 +166,21 @@ export function TaskManager({
     setDraft(null);
     setConfirmDelete(false);
   };
+
+  // Fires on the false -> true edge only. `openWith` is read here rather than
+  // in a render branch so that backing out of the form with the chevron
+  // returns to the list instead of immediately re-entering the draft.
+  useEffect(() => {
+    if (!open) {
+      setDraft(null);
+      setConfirmDelete(false);
+      return;
+    }
+    if (!openWith) return;
+    if (openWith.mode === "edit") startEdit(openWith.template);
+    else startNew(openWith.scope);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const save = async () => {
     if (!draft || !studioId) return;
