@@ -210,6 +210,8 @@
   text-transform: uppercase;
   color: var(--jg-ink-muted);
 }
+/* Retained: the ⋯ machine menu still uses it for the journey summary. The
+   grid corner does not -- it is one word now. */
 .jg-corner__sub {
   font-size: 10.5px;
   font-weight: 600;
@@ -1300,15 +1302,64 @@ button.jg-stat__btn:active { background: var(--jg-surface-3); }
   flex: none;
   white-space: nowrap;
 }
+/* "Show:" -- the toggle's own label, so the toggle does not need a
+   redundant "ROUTINE" heading sitting above a "Routine" button. */
+.jg-rail__label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--jg-ink-muted);
+  flex: none;
+  white-space: nowrap;
+}
+/* The count is a fact, not a control, so it is a quiet chip rather than one
+   more thing that looks pressable in a rail full of buttons. */
 .jg-rail__count {
   font-size: 10.5px;
-  font-weight: 600;
-  color: var(--jg-ink-faint);
+  font-weight: 650;
+  color: var(--jg-ink-2);
+  background: var(--jg-surface);
+  border: 1px solid var(--jg-border);
+  border-radius: 999px;
+  padding: 2px 8px;
   font-variant-numeric: tabular-nums;
   flex: none;
   white-space: nowrap;
 }
+.jg-rail__count b { font-weight: 800; color: var(--jg-ink); }
+.jg-rail__count i { font-style: normal; color: var(--jg-ink-faint); font-weight: 600; }
 .jg-rail__sp { flex: 1; min-width: 4px; }
+
+/* Edit Routine. It used to live in the session bar at the top right, three
+   zones away from the list it reorders -- and directly beside Discard, the
+   one button in this app you must never hit by accident. It belongs here,
+   against the machine list, and it is deliberately the quietest control in
+   the rail: reordering mid-session is occasional, and the rail is read far
+   more often than it is pressed. */
+.jg-rail__edit {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--jg-border-strong);
+  border-radius: var(--jg-radius-sm);
+  background: var(--jg-surface);
+  color: var(--jg-ink-2);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.jg-rail__edit:hover { background: var(--jg-surface-3); }
 
 /* Focus, renamed to what it does: which machines the list shows. */
 .jg-seg2 {

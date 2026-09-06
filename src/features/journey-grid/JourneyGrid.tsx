@@ -301,7 +301,7 @@ function RowImpl({
 /**
  * The ⋯ at the right edge of a machine cell in the dense grid. Opens a small
  * popover with the machine's settings (the same G/S pairs the inline rail
- * shows in the Active Session), the start → now readout and the note count.
+ * shows in the Active Session) and the note count.
  * Rendered through a portal: the sticky machine column lives inside an
  * overflow scroller, so anything positioned inside the cell would be clipped.
  */
@@ -676,9 +676,12 @@ export function JourneyGrid({
         <div className="jg-grid">
           {/* ---------- header row ---------- */}
           <div className="jg-row" role="row">
+            {/* Just the word. The "start → now" line under it described the
+                Analytics column, which the Active Session turns off -- so on
+                the screen a trainer actually stares at for an hour it was a
+                caption for something that was not on screen. */}
             <div className="jg-corner" role="columnheader">
               <span className="jg-corner__title">{title}</span>
-              <span className="jg-corner__sub">start → now</span>
             </div>
 
             {showStats && (

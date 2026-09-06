@@ -3156,15 +3156,11 @@ export function WorkoutTrackerView({
             <MessageSquare className="w-3 h-3 text-cta shrink-0 fill-current" />
             <span className="hidden sm:inline">Notes</span>
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsSessionRoutineManagerOpen(true)}
-            className="border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-surface-1 h-8 px-2 sm:px-2.5 rounded-lg text-[11px] flex items-center gap-1 shrink-0"
-          >
-            <Settings2 className="w-3 h-3 shrink-0" />
-            <span className="hidden sm:inline">Routine</span>
-          </Button>
+          {/* Routine editing used to sit here, between Notes and Discard.
+              It acts on the machine list, so it moved down to the grid rail
+              that sits directly on top of that list -- and moving it also
+              buys a gap between the buttons a trainer presses all session
+              and Discard, which destroys the session. */}
           <Button
             variant="outline"
             size="sm"
@@ -3751,21 +3747,14 @@ export function WorkoutTrackerView({
           is width for it and collapses to a Key popover when there is not,
           so it costs no permanent vertical space either way. */}
       <div className="flex-1 min-h-0 flex flex-col">
+        {/* The rail used to open with the word ROUTINE, then a bare
+            "6 of 21", then a segmented control whose left half also said
+            Routine -- three pieces of chrome for one idea. It is one
+            sentence now: Show [All | Routine], and a chip saying how many of
+            how many. Then the control that edits that list. */}
         <div className="jg-rail">
-          <span className="jg-rail__title">Routine</span>
-          <span className="jg-rail__count">
-            {activeMachineIds.length} of {gridRows.length}
-          </span>
+          <span className="jg-rail__label">Show:</span>
           <div className="jg-seg2" role="radiogroup" aria-label="Which machines to list">
-            <button
-              type="button"
-              role="radio"
-              aria-checked={!showAllMachines}
-              className={`jg-seg2__btn ${!showAllMachines ? "is-on" : ""}`}
-              onClick={() => setShowAllMachines(false)}
-            >
-              Routine
-            </button>
             <button
               type="button"
               role="radio"
@@ -3775,7 +3764,30 @@ export function WorkoutTrackerView({
             >
               All
             </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={!showAllMachines}
+              className={`jg-seg2__btn ${!showAllMachines ? "is-on" : ""}`}
+              onClick={() => setShowAllMachines(false)}
+            >
+              Routine
+            </button>
           </div>
+          <span
+            className="jg-rail__count"
+            aria-label={`${activeMachineIds.length} machines in today's routine, of ${gridRows.length} on file`}
+          >
+            <b>{activeMachineIds.length}</b> <i>of</i> {gridRows.length}
+          </span>
+          <button
+            type="button"
+            className="jg-rail__edit"
+            onClick={() => setIsSessionRoutineManagerOpen(true)}
+          >
+            <Settings2 className="w-3 h-3 shrink-0" strokeWidth={2.5} />
+            Edit Routine
+          </button>
           <button
             type="button"
             className="jg-rail__older"
